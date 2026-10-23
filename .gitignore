@@ -21,3 +21,4 @@ data/cache/
 
 # Test scratch files
 scratch_test_ga.py
+.vercel
