@@ -1,0 +1,23 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.env.*
+
+# Runtime data and secrets
+data/prg.db
+data/uploads/
+data/cache/
+*.sqlite
+*.sqlite3
+
+# Local/build artifacts
+.vscode/
+.idea/
+*.log
+
+# Test scratch files
+scratch_test_ga.py

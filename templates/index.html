@@ -1,0 +1,235 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MS-PRG   Drawing Data Extractor (MVP)</title>
+<style>
+:root{--bg:#f4f6f9;--panel:#fff;--ink:#1c2733;--mut:#6b7886;--line:#dbe1e8;--brand:#1f4e78;--brand2:#2f6fa8;--ok:#1e8a4c;--warn:#b9770e;--bad:#b63a3a;--hl:#eaf2fb}
+@media (prefers-color-scheme:dark){:root{--bg:#12171d;--panel:#1a222b;--ink:#e6ebf0;--mut:#8b98a6;--line:#2b3744;--brand:#5ea1dd;--brand2:#7db6ea;--hl:#1f2f40;--ok:#4cc17f;--warn:#e0a13a;--bad:#e06b6b}}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+aside{width:250px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0}
+aside h1{font-size:14px;margin:0;padding:14px 14px 4px;color:var(--brand)}
+aside .sub{padding:0 14px 10px;color:var(--mut);font-size:11px}
+.plist{flex:1;overflow:auto}
+.pitem{padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.pitem:hover{background:var(--hl)}.pitem.on{background:var(--hl);border-left:3px solid var(--brand);padding-left:11px}
+.pitem b{display:block}.pitem span{color:var(--mut);font-size:11px}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--brand2)}
+.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
+body.dark .btn.pri{color:#0b1520}
+@media (prefers-color-scheme:dark){.btn.pri{color:#0b1520}}
+.btn.sm{padding:2px 7px;font-size:12px}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top h2{margin:0;font-size:16px;flex:1;min-width:150px}
+.stats{display:flex;gap:8px;padding:8px 16px;flex-wrap:wrap}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px}
+.stat b{font-size:16px;display:block;line-height:1.1}.stat span{color:var(--mut);font-size:11px}
+.drop{margin:0 16px 8px;border:2px dashed var(--line);border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;background:var(--panel)}
+.drop.over{border-color:var(--brand2);background:var(--hl)}
+.docs{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.chip{border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:11.5px;display:flex;gap:6px;align-items:center}
+.chip.done{border-color:var(--ok)}.chip.error{border-color:var(--bad)}.chip.processing{border-color:var(--warn)}
+.chip i{font-style:normal;color:var(--mut)}
+.bar{height:3px;background:var(--brand2);border-radius:2px}
+.tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{padding:7px 12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mut)}
+.tab.on{color:var(--brand);border-color:var(--brand);font-weight:600}
+.tools{display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap}
+.tools input[type=search]{padding:5px 9px;border:1px solid var(--line);border-radius:6px;min-width:220px;background:var(--panel)}
+.tools select{padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.work{flex:1;display:flex;min-height:0;padding:0 16px 12px;gap:12px}
+.tbl{flex:1;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+table{border-collapse:collapse;width:100%}
+th{position:sticky;top:0;background:var(--brand);color:#fff;text-align:left;padding:6px 8px;font-weight:600;white-space:nowrap;z-index:1}
+@media (prefers-color-scheme:dark){th{color:#0b1520}}
+td{border-top:1px solid var(--line);padding:6px 8px;vertical-align:top;max-width:340px;white-space:normal;word-break:break-word}.insights{display:flex;min-height:100%;gap:14px;padding:14px}.insheet{width:250px;border-right:1px solid var(--line);padding-right:12px}.insheet h3,.inspec h3{margin:0 0 10px;font-size:14px}.sheetlist{display:flex;flex-direction:column;gap:6px}.sheetpick{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:8px;cursor:pointer}.sheetpick.on{border-color:var(--brand2);background:var(--hl)}.sheetpick b,.sheetpick span,.sheetpick small{display:block}.sheetpick span{color:var(--brand2);font-size:11px}.sheetpick small{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inspec{flex:1;min-width:0}.insgrid{display:grid;grid-template-columns:minmax(240px,38%) 1fr;gap:14px}.inspreview{background:#111;border-radius:7px;overflow:auto;max-height:650px}.inspreview img{width:100%;display:block}.inspec h4{margin:0 0 8px;font-size:12px}
+td[contenteditable]:focus{outline:2px solid var(--brand2);background:var(--hl)}
+tr:hover td{background:var(--hl)}
+tr.sel td{background:var(--hl)}
+tr.low td:first-child{box-shadow:inset 3px 0 var(--warn)}
+tr.spare td{color:var(--mut);font-style:italic}
+td.sheet{cursor:pointer;color:var(--brand2);text-decoration:underline}
+.prev{width:46%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:none;flex-direction:column}
+.prev.on{display:flex}
+.prev header{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.prev header b{flex:1}
+.prev .img{flex:1;overflow:auto;padding:6px}
+.prev img{width:100%;display:block;transition:width .1s}
+.empty{padding:50px;text-align:center;color:var(--mut)}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:9}
+.modal.on{display:flex}.project-card{width:520px}.modal-icon{width:34px;height:34px;border-radius:9px;background:var(--hl);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px}.project-card label{margin-top:18px}.project-card input{font-size:14px;padding:10px 12px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.card{background:var(--panel);border-radius:10px;padding:18px;width:460px;max-width:92vw;border:1px solid var(--line)}
+.card label{display:block;margin:10px 0 3px;color:var(--mut);font-size:12px}
+.card input,.card select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.toast{position:fixed;bottom:16px;right:16px;background:var(--brand);color:#fff;padding:9px 14px;border-radius:8px;display:none;z-index:20;max-width:420px}
+@media (prefers-color-scheme:dark){.toast{color:#0b1520}}
+.note{padding:6px 16px;color:var(--mut);font-size:11.5px}
+.menu{position:relative}.menu .dd{display:none;position:absolute;right:0;top:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:5;min-width:170px;margin-top:3px;overflow:hidden}
+.menu:hover .dd,.menu:focus-within .dd{display:block}
+.dd a{display:block;padding:7px 12px;color:var(--ink);text-decoration:none;cursor:pointer}.dd a:hover{background:var(--hl)}
+body{background:#fff!important;color:#111!important}aside,main,.top,.panel,.tbl,.prev,.card,.drop,.stat,.chip,.sheetpick,.tools input,.tools select{background:#fff!important;color:#111!important}aside{border-color:#d9dee5!important}.top,.tbl,.prev,.drop,.stat,.card,.sheetpick{border-color:#d9dee5!important}.muted-cell,.note,.sub,.sheetpick small{color:#5f6b76!important}th{background:#e9f2fb!important;color:#111!important;border-bottom:1px solid #b8cbe0}td{color:#111!important;border-color:#e3e7eb!important}tr:hover td,.sheetpick:hover{background:#f5f9fd!important}.tab{color:#52606d!important}.tab.on{color:#155fa0!important}.btn{background:#fff!important;color:#111!important;border-color:#c8d0d9!important}.btn.pri{background:#2f80c9!important;color:#fff!important;border-color:#2f80c9!important}.tools input,.tools select,.project-card input{background:#fff!important;color:#111!important;border-color:#c8d0d9!important}.modal{background:rgba(15,23,42,.35)!important}.modal-icon{background:#eaf3fb!important;color:#155fa0!important}:root{--bg:#ffffff;--panel:#ffffff;--ink:#111827;--mut:#5f6b76;--line:#d9dee5;--brand:#2f80c9;--brand2:#4b9bdd;--ok:#21864b;--warn:#a96b00;--bad:#b43b3b;--hl:#eaf3fb}.pitem.on{background:#eaf3fb!important;border-left-color:#2f80c9!important}.pitem{color:#111827!important}.pitem span{color:#5f6b76!important}</style>
+</head>
+<body>
+<aside>
+  <h1>Drawing Data Extractor</h1>
+  <div class="sub">MS-PRG Automation   MVP</div>
+  <div style="padding:0 14px 10px;display:flex;gap:6px"><button class="btn pri" onclick="newProject()">+ New project</button><button class="btn" onclick="openSettings()"> AI</button></div>
+  <div class="plist" id="plist"></div>
+</aside>
+<main>
+  <div class="top">
+    <h2 id="ptitle">Select or create a project</h2>
+    <button class="btn" id="insBtn" onclick="openInsights()" style="display:none">Drawing Insights</button><button class="btn" id="gaBtn" onclick="extractGA()" style="display:none" title="Extract panel details, dimensions, and specifications from GA drawings"> Extract GA Specs</button>
+    <button class="btn" id="aiBtn" onclick="aiEnrich()" style="display:none" title="Groq: field devices, tag suggestions, device classes"> AI enrich</button>
+    <div class="menu" id="expMenu" style="display:none"><button class="btn pri">Export </button>
+      <div class="dd"><a onclick="exp('xlsx')">Excel (.xlsx)  all tables</a><a onclick="exp('pdf')">PDF</a><a onclick="exp('csv')">CSV (zip of all)</a><a onclick="expCsvCur()">CSV  current table</a><a onclick="exp('xml')">XML</a></div></div>
+  </div>
+  <div id="body" style="display:none;flex:1;flex-direction:column;min-height:0">
+    <div class="stats" id="stats"></div>
+    <div class="drop" id="drop"><div><b>Drop drawing PDFs here</b><br><span style="color:var(--mut)">batch upload   vector &amp; scanned (OCR)</span></div>
+      <input type="file" id="file" multiple accept=".pdf" style="display:none"><button class="btn" onclick="file.click()">Browse</button><div class="docs" id="docs"></div></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="tools" id="tools">
+      <input type="search" id="q" placeholder="Search / filter" oninput="debounce()">
+      <select id="flt" onchange="load()"></select>
+      <button class="btn" id="addBtn" onclick="addRow()">+ Row</button>
+      <span id="count" style="color:var(--mut)"></span>
+    </div>
+    <div class="note" id="note"></div>
+    <div class="work"><div class="tbl" id="tbl"></div>
+      <div class="prev" id="prev"><header><b id="pt">Preview</b><button class="btn sm" onclick="zoom(-1)"></button><button class="btn sm" onclick="zoom(1)">+</button>
+        <button class="btn sm" id="reread" onclick="reread()" title="Re-read this sheet with Groq vision"> AI re-read</button><button class="btn sm" onclick="prev.classList.remove('on')"></button></header>
+        <div class="img"><img id="pimg"></div></div></div>
+  </div>
+</main>
+<div class="modal" id="projectModal" onclick="if(event.target===this)closeProjectModal()"><div class="card project-card"><div class="modal-icon">+</div><h3 style="margin:0 0 4px">Create new project</h3><div style="color:var(--mut);font-size:12px">Start a workspace for a drawing package and its extracted engineering data.</div><label for="projectName">Project name</label><input id="projectName" placeholder="e.g. PRG-2526-616 Shah Eye Care ETP" onkeydown="if(event.key==='Enter')createProject();if(event.key==='Escape')closeProjectModal()"><div class="modal-actions"><button class="btn" onclick="closeProjectModal()">Cancel</button><button class="btn pri" onclick="createProject()">Create project</button></div></div></div><div class="modal" id="modal"><div class="card">
+  <h3 style="margin:0 0 4px">Groq AI settings</h3><div style="color:var(--mut);font-size:12px">Used only when you press an AI button. Key is stored in the local database.</div>
+  <label>API key</label><input id="gk" type="password" placeholder="gsk_"><div id="gkh" style="font-size:11px;color:var(--mut)"></div>
+  <label>Text model</label><input id="gt" list="mlist"><label>Vision model (for AI re-read)</label><input id="gv" list="mlist"><datalist id="mlist"></datalist>
+  <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" onclick="listModels()">List available models</button><span style="flex:1"></span>
+  <button class="btn" onclick="modal.classList.remove('on')">Close</button><button class="btn pri" onclick="saveSettings()">Save</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const TABS=[["insights","Drawing Insights"],["io","I/O List"],["circuits","Feeders / Circuits"],["panel_specs","Panel Specs"],["summary","I/O Summary"],["bom","BOM"],["devices","Device List"],["terminals","Terminals"],["wires","Ferrules / Wires"],["cables","Cables"],["xref","Cross Reference"],["sheets","Sheets"]];
+const NOTES={insights:"Select a drawing to view preview and extracted GA specifications.",wires:"Beta: wire numbers and cross-reference targets are read from the drawing. From/To terminals need net tracing (roadmap phase 2).",
+ circuits:"MCC Feeder & Power Circuits extracted from Single Line Diagrams and Feeder Legend details.",
+ panel_specs:"Panel dimensions (HWD, Plinth), sheet metal thickness, IP protection, paint colours, cable entry, front equipment, and internal GA layout.",
+ cables:"Cable data is not printed on these drawings  enter manually or import (roadmap: cable schedule import / generation rules).",
+ terminals:"Terminal strips of PLC I/O sheets. Power/control terminal blocks need symbol-level connectivity (roadmap phase 2).",
+ io:"Yellow bar = low-confidence row   italic = spare. Click any cell to edit; edits are learned. Click a sheet number to preview.",
+ bom:"Aggregated from part numbers printed on the drawings. Items not printed on the drawings (e.g. lamps, terminals, wire) will not appear  add via Device List.",
+ devices:"Includes drawing parts, PLC modules and field devices/instruments derived from the I/O list.",
+ sheets:"Every page is auto-classified by drawing type. Click a sheet number to preview. Use the filter to narrow by type."};
+const TYPE_COLORS={"Title Page":"#7c3aed","Table of Contents":"#6b7280","General Specifications":"#0891b2","External General Arrangement":"#0d9488","Internal General Arrangement":"#059669","Single Line Diagram":"#d97706","Feeder Legend Details":"#b45309","Power & Control Circuit":"#dc2626","PLC CPU Wiring":"#1d4ed8","PLC DI Wiring":"#2563eb","PLC DO Wiring":"#7c3aed","PLC AI Wiring":"#0891b2","PLC AO Wiring":"#0d9488","PLC Wiring Diagram":"#3b82f6","Terminal Diagram":"#9333ea","Cable Schedule":"#db2777","Bill of Materials":"#16a34a","Unknown":"#9ca3af"};
+let P=null,T="io",cur={doc:null,sheet:null},zoomW=100,timer;
+const HEADS={rack:"PLC Rack",slot:"Slot",module_name:"Module Name",module_model:"Module Model",channel:"Channel",feeder_no:"Feeder No.",description:"Description",rating_kw:"Motor Rating",starter_type:"Starter Type",mcb:"MCB / MCCB",contactor:"Contactor",olr:"Overload Relay",cable_size:"Cable Size",controls:"Control Devices",sheet:"Sheet",module_type:"Module Type",plc_address:"PLC Address",tag:"Tag Name",signal_type:"Signal Type",field_device:"Field Device",cable_no:"Cable Number",terminal:"Terminal Number",remarks:"Remarks",dev_class:"Device Class",part_no:"Part Number",make:"Manufacturer",desc:"Description",strip:"Terminal Strip",terminal_no:"Terminal No.",terminal_type:"Terminal Type",incoming_wire:"Incoming Wire",outgoing_wire:"Outgoing Wire",core_no:"Core No.",spare:"Spare"};
+function head(c){return HEADS[c]||c.replaceAll("_"," ").replace(/\\b\\w/g,x=>x.toUpperCase())}
+function toast(m,ms=3500){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",ms)}
+async function api(u,o){const r=await fetch(u,o);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.statusText);return j}
+function debounce(){clearTimeout(timer);timer=setTimeout(load,250)}
+async function projects(){const ps=await api("/api/projects");$("plist").innerHTML=ps.map(p=>`<div class="pitem ${P&&P.id==p.id?"on":""}" onclick='pick(${JSON.stringify(p)})'><b>${esc(p.name)}</b><span>${p.docs} drawing(s)   ${p.io} I/O</span></div>`).join("")||'<div class="empty">No projects yet</div>'}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function openProjectModal(){$("projectModal").classList.add("on");$("projectName").value="";setTimeout(()=>$("projectName").focus(),50)}
+function closeProjectModal(){$("projectModal").classList.remove("on")}
+async function newProject(){openProjectModal()}
+async function createProject(){const n=$("projectName").value.trim();if(!n){$("projectName").focus();return}try{const r=await api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n})});closeProjectModal();await projects();pick({id:r.id,name:n})}catch(e){toast(e.message)}}
+function pick(p){P=p;$("ptitle").textContent=p.name;$("body").style.display="flex";$("gaBtn").style.display="";$("insBtn").style.display="";$("aiBtn").style.display="";$("expMenu").style.display="";prev.classList.remove("on");projects();tabs();refresh()}
+async function extractGA(){if(!P)return;toast("Extracting GA panel specs and dimensions");try{const r=await api(`/api/projects/${P.id}/extract-ga`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({use_ai:true})});toast(`Extracted ${r.extracted_specs} panel specifications!`);T="panel_specs";tabs();load();stats();}catch(e){toast(e.message)}}
+function tabs(){$("tabs").innerHTML=TABS.map(([k,n])=>`<div class="tab ${k==T?"on":""}" onclick="T='${k}';tabs();load()">${n}</div>`).join("")}
+async function refresh(){await docs();await stats();await load()}
+async function stats(){const s=await api(`/api/projects/${P.id}/stats`);$("stats").innerHTML=[["I/O points",s.io],["Feeders / Circuits",s.circuits||0],["Panel Specs",s.specs||0],["Spare I/O",s.spare],["Needs review",s.low],["Devices",s.devices],["BOM parts",s.parts],["Wire nos.",s.wires],["Corrections learned",s.corrections]].map(([a,b])=>`<div class="stat"><b>${b}</b><span>${a}</span></div>`).join("")}
+let poll;
+async function docs(){const d=await api(`/api/projects/${P.id}/docs`);$("docs").innerHTML=d.map(x=>`<div class="chip ${x.status}" title="${esc(x.message)}">${esc(x.filename.slice(0,38))} <i>${x.status}${x.status=="processing"?" "+x.progress+"%":""}</i><button class="btn sm" onclick="delDoc(${x.id})"></button></div>`).join("");
+ clearTimeout(poll);if(d.some(x=>x.status=="processing"||x.status=="queued"))poll=setTimeout(async()=>{await docs();await stats();await load()},1500)}
+async function delDoc(id){if(!confirm("Remove this drawing and its extracted data?"))return;await api("/api/docs/"+id,{method:"DELETE"});refresh()}
+const drop=$("drop");["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",ev=>up(ev.dataTransfer.files));$("file").onchange=e=>up(e.target.files);
+async function up(files){const fd=new FormData();[...files].forEach(f=>fd.append("files",f));toast(`Uploading ${files.length} file(s)`);await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});$("file").value="";docs()}
+async function load(){if(!P)return;const note=NOTES[T]||"";$("note").textContent=note; if(T=="insights"){
+  $("addBtn").style.display="none"; $("flt").style.display="none";
+  const [ss,ps]=await Promise.all([api(`/api/projects/${P.id}/sheets`),api(`/api/projects/${P.id}/table/panel_specs`)]);
+  window.insightSpecs=ps.rows; window.insightSheets=ss; const first=ss.find(x=>x.draw_type==="external_ga"||x.draw_type==="internal_ga")||ss[0]; $("count").textContent=ss.length+" drawings  "+ps.total+" extracted specifications";
+  $("tbl").innerHTML=`<div class="insights"><div class="insheet"><h3>Drawing Register</h3><div class="sheetlist">${ss.map((r,i)=>`<button class="sheetpick ${i==0?"on":""}" onclick="insightSheet(${r.doc_id},${r.sheet},this)"><b>Sheet ${esc(r.sheet)}</b><span>${esc(r.draw_type_label||r.kind||"Unknown")}</span><small>${esc(r.title||r.filename||"")}</small></button>`).join("")}</div></div><div class="inspec"><h3 id="insTitle">${first?esc(first.title||"Drawing preview"):"No drawings uploaded"}</h3><div class="insgrid"><div class="inspreview">${first?`<img src="/api/preview/${first.doc_id}/${first.sheet}.png">`:""}</div><div><h4>Extracted panel / GA specifications</h4><table><thead><tr><th>Section</th><th>Engineering parameter</th><th>Extracted value</th><th>Sheet</th></tr></thead><tbody id="insSpecBody">${ps.rows.filter(r=>!first||String(r.sheet)==String(first.sheet)).map(r=>`<tr><td>${esc(r.category||"")}</td><td>${esc(r.property_name||"")}</td><td>${esc(r.property_value||"")}</td><td>${esc(r.sheet||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No GA specifications yet. Click Extract GA Specs.</td></tr>`}</tbody></table></div></div></div></div>`;
+  return;
+ }
+ if(T=="sheets"){
+  const s=await api(`/api/projects/${P.id}/sheets`);
+  const flt=$("flt"),fv=flt.value;
+  const types=[...new Set(s.map(r=>r.draw_type_label||r.kind||"Unknown"))].sort();
+  flt.style.display="";flt.innerHTML='<option value="">All types</option>'+types.map(t=>'<option '+(t===fv?"selected":"")+'>'+esc(t)+'</option>').join("");
+  $("addBtn").style.display="none";
+  const q2=($("q").value||"").toLowerCase();
+  const filtered=s.filter(r=>(!fv||(r.draw_type_label||r.kind)===fv)&&(!q2||[r.title,r.draw_type_label,r.drawing_no,r.revision,r.filename].join(" ").toLowerCase().includes(q2)));
+  $("count").textContent=filtered.length+" / "+s.length+" sheets";
+  const TC={"Title Page":"#7c3aed","Table of Contents":"#6b7280","General Specifications":"#0891b2","External General Arrangement":"#0d9488","Internal General Arrangement":"#059669","Single Line Diagram":"#d97706","Feeder Legend Details":"#b45309","Power & Control Circuit":"#dc2626","PLC CPU Wiring":"#1d4ed8","PLC DI Wiring":"#2563eb","PLC DO Wiring":"#7c3aed","PLC AI Wiring":"#0891b2","PLC AO Wiring":"#0d9488","PLC Wiring Diagram":"#3b82f6","Terminal Diagram":"#9333ea","Cable Schedule":"#db2777","Bill of Materials":"#16a34a","Unknown":"#9ca3af"};
+  $("tbl").innerHTML="<table><thead><tr><th>Sheet</th><th>Page</th><th>Drawing Title</th><th>Drawing Type</th><th>Drawing No.</th><th>Rev</th><th>Scanned</th><th>File</th></tr></thead><tbody>"+
+   filtered.map(r=>{
+    const lbl=r.draw_type_label||r.kind||"Unknown";
+    const col=TC[lbl]||TC["Unknown"];
+    const badge="<span style='display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:"+col+"22;color:"+col+";border:1px solid "+col+"55;white-space:nowrap'>"+esc(lbl)+"</span>";
+    const ocr=r.scanned?"<span style='color:var(--warn)'>&#9889; OCR</span>":"<span style='color:var(--ok)'>&#10003; Vector</span>";
+    return "<tr><td class='sheet' onclick='showSheet("+r.doc_id+","+r.sheet+")' style='cursor:pointer;color:var(--brand2);font-weight:600'>"+r.sheet+"</td><td>"+esc(r.label||"")+"</td><td style='max-width:280px;white-space:normal'>"+esc(r.title||"")+"</td><td>"+badge+"</td><td style='font-size:11px;color:var(--mut)'>"+esc(r.drawing_no||"")+"</td><td style='font-size:11px'>"+esc(r.revision||"")+"</td><td style='font-size:11px'>"+ocr+"</td><td style='color:var(--mut);font-size:11px'>"+esc((r.filename||"").slice(0,42))+"</td></tr>";
+   }).join("")+"</tbody></table>";
+  return;}
+ const j=await api(`/api/projects/${P.id}/table/${T}?q=${encodeURIComponent($("q").value)}&filter=${encodeURIComponent($("flt").value)}`);
+ $("addBtn").style.display=j.editable?"":"none";const f=$("flt");const v=f.value;
+ if(j.filter_options.length){f.style.display="";f.innerHTML=`<option value="">All ${head(j.filter_label)}</option>`+j.filter_options.map(o=>`<option ${o==v?"selected":""}>${esc(o)}</option>`).join("")}else f.style.display="none";
+ $("count").textContent=j.total+" rows";
+ if(!j.rows.length){$("tbl").innerHTML='<div class="empty">No data yet  upload a drawing PDF'+(T=="cables"?" or add rows manually":"")+".</div>";return}
+ if(j.editable)$("tbl").innerHTML=editHTML(j);else $("tbl").innerHTML=tableHTML(j.cols,j.rows)}
+function tableHTML(cols,rows,_a,_b,meta){return `<table><thead><tr>${cols.map(c=>`<th>${esc(head(c))}</th>`).join("")}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${r.map((v,k)=>{const isSheet=/sheet/i.test(cols[k])&&String(v).match(/^\d+$/);return `<td class="${isSheet?"sheet":""}" ${isSheet?`onclick="showSheet(${meta?meta[i].doc_id:"null"},${v})"`:""}>${esc(v)}</td>`}).join("")}</tr>`).join("")}</tbody></table>`}
+function editHTML(j){const cols=j.cols;return `<table><thead><tr>${cols.map(c=>`<th>${esc(head(c))}</th>`).join("")}<th></th></tr></thead><tbody>${j.rows.map(r=>`<tr data-id="${r.id}" class="${parseFloat(r.conf)<0.7?"low":""} ${r.spare=="1"?"spare":""}">${cols.map(c=>c=="sheet"?`<td class="sheet" onclick="showSheet(${r.doc_id},${r.sheet||0})">${esc(r[c])}</td>`:`<td contenteditable="plaintext-only" data-f="${c}" onblur="save(this)" onkeydown="if(event.key=='Enter'){event.preventDefault();this.blur()}">${esc(r[c])}</td>`).join("")}<td><button class="btn sm" onclick="delRow(${r.id})"></button></td></tr>`).join("")}</tbody></table>`}
+async function save(td){const id=td.parentNode.dataset.id;const key=T;try{await api(`/api/row/${key}/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({field:td.dataset.f,value:td.textContent})});td.style.background="";stats()}catch(e){toast(e.message)}}
+async function delRow(id){await api(`/api/row/${T}/${id}`,{method:"DELETE"});load();stats()}
+async function addRow(){await api(`/api/row/${T}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:P.id,values:{}})});load()}
+function openInsights(){T="insights";tabs();load();}
+function insightSheet(doc,sheet,el){
+ document.querySelectorAll(".sheetpick").forEach(x=>x.classList.remove("on"));
+ if(el)el.classList.add("on");
+ const im=document.querySelector(".inspreview img");
+ if(im)im.src=`/api/preview/${doc}/${sheet}.png`;
+ const sh=(window.insightSheets||[]).find(x=>String(x.sheet)==String(sheet));
+ const title=document.getElementById("insTitle");
+ if(title)title.textContent=sh?(sh.title||("Sheet "+sheet)):"Sheet "+sheet;
+ const body=document.getElementById("insSpecBody");
+ if(body){const rows=(window.insightSpecs||[]).filter(r=>String(r.sheet)==String(sheet));body.innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(r.category||"")}</td><td>${esc(r.property_name||"")}</td><td>${esc(r.property_value||"")}</td><td>${esc(r.sheet||"")}</td></tr>`).join(""):"<tr><td colspan='4' class='empty'>No specifications extracted for this sheet.</td></tr>";}
+}function showSheet(doc,sheet){if(!doc){toast("Open this sheet from a row that belongs to a drawing");return}cur={doc,sheet};$("pt").textContent=`Sheet ${sheet}`;$("pimg").src=`/api/preview/${doc}/${sheet}.png`;prev.classList.add("on")}
+function zoom(d){zoomW=Math.max(60,Math.min(300,zoomW+d*30));$("pimg").style.width=zoomW+"%"}
+async function reread(){const mt=prompt("Module type on this sheet (DI / DO / AI / AO / RTD / TC)","DI");if(!mt)return;toast("Asking Groq vision this can take ~10 s");try{const r=await api(`/api/docs/${cur.doc}/sheet/${cur.sheet}/reread`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({module_type:mt.toUpperCase()})});toast(`AI read ${r.channels} channels  review the flagged rows`);load();stats()}catch(e){toast(e.message,6000)}}
+async function aiEnrich(){toast("Groq is enriching the I/O list");try{const r=await api(`/api/projects/${P.id}/ai/enrich`,{method:"POST"});toast(`AI: ${r.io_updates} I/O fields filled, ${r.devices_classified} devices classified`);load()}catch(e){toast(e.message,6000)}}
+function exp(f){location.href=`/api/export/${P.id}/${f}`}
+function expCsvCur(){const n={io:"I-O List",circuits:"Feeders - Circuits",summary:"I-O Summary",bom:"BOM",devices:"Device List",terminals:"Terminal Schedule",wires:"Ferrule List",cables:"Cable Schedule",xref:"Cross Reference"}[T];if(!n){toast("Pick a data tab first");return}location.href=`/api/export/${P.id}/csv?table=${encodeURIComponent(n)}`}
+async function openSettings(){const s=await api("/api/settings");$("gt").value=s.text_model;$("gv").value=s.vision_model;$("gkh").textContent=s.groq_key_set?"Key saved ("+s.groq_key_hint+"). Leave blank to keep.":"No key saved yet.";modal.classList.add("on")}
+async function saveSettings(){await api("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groq_api_key:$("gk").value,text_model:$("gt").value,vision_model:$("gv").value})});$("gk").value="";modal.classList.remove("on");toast("Saved")}
+async function listModels(){try{await saveSettings();const m=await api("/api/llm/models");$("mlist").innerHTML=m.map(x=>`<option>${x}</option>`).join("");toast(m.length+" models available  pick from the fields");modal.classList.add("on")}catch(e){toast(e.message,6000)}}
+projects();tabs();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
