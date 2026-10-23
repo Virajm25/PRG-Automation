@@ -18,6 +18,26 @@ def no_cache(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     return response
 app.config["MAX_CONTENT_LENGTH"] = 600 * 1024 * 1024
+
+
+class _RestoreRewrittenPath:
+    """vercel.json rewrites every URL to /api/index?__path=<original path>; Vercel's Python runtime hands the app the rewritten
+    path, so put the original one back before routing. Harmless elsewhere (the parameter is never present locally)."""
+    def __init__(self, wsgi):
+        self.wsgi = wsgi
+
+    def __call__(self, environ, start_response):
+        from urllib.parse import parse_qsl, urlencode
+        qs = environ.get("QUERY_STRING", "")
+        if "__path=" in qs:
+            query = parse_qsl(qs, keep_blank_values=True)
+            orig = next((v for k, v in query if k == "__path"), "")
+            environ["PATH_INFO"] = "/" + orig.lstrip("/")
+            environ["QUERY_STRING"] = urlencode([(k, v) for k, v in query if k != "__path"])
+        return self.wsgi(environ, start_response)
+
+
+app.wsgi_app = _RestoreRewrittenPath(app.wsgi_app)
 db.init()
 EDITABLE = {"io": "io_rows", "circuits": "circuits", "devices": "devices", "wires": "wires", "terminals": "terminals", "cables": "cables", "panel_specs": "panel_specs", "bom_lines": "bom_items"}
 
