@@ -37,6 +37,11 @@ def index():
 
 
 # ------------------------------------------------------------------ projects & documents
+@app.get("/api/health")
+def health():
+    from core.mongo_db import ping
+    return J({"sqlite": True, "mongodb": ping()})
+
 @app.get("/api/projects")
 def projects():
     ps = db.q("SELECT * FROM projects ORDER BY id DESC")
@@ -358,6 +363,7 @@ def learning_info():
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5057)), debug=False, threaded=True)
+
 
 
 

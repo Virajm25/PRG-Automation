@@ -7,3 +7,4 @@ pytesseract>=0.3.10      # optional: OCR for scanned PDFs (also install the Tess
 pywebview>=5.0           # optional: native desktop window instead of the browser
 pandas>=2.0              # only needed to run tests/validate.py
 xlrd>=2.0                # only needed to run tests/validate.py (.xls reference files)
+pymongo[srv]>=4.8

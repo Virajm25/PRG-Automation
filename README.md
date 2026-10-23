@@ -18,3 +18,8 @@ Set `GROQ_API_KEY`, `GROQ_TEXT_MODEL`, and `GROQ_VISION_MODEL` as environment va
 ## Vercel note
 
 Vercel deployment is suitable for the UI/API demo, but Vercel serverless storage is ephemeral. Production deployments should use external object storage for PDFs and a hosted database instead of the local SQLite/runtime `data` directory. OCR and large PDF batches may also exceed serverless limits.
+
+## MongoDB Atlas configuration
+
+Copy .env.example to .env for local development, or add the same variables under Vercel Project Settings → Environment Variables. The /api/health endpoint reports MongoDB connectivity. The current SQLite adapter remains the local fallback; the application data-layer migration to MongoDB must be enabled before relying on Atlas as the production database.
+
