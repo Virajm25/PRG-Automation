@@ -17,113 +17,116 @@ def is_feeder_sheet(text):
     )
 
 
-def extract_circuits(pdf):
-    circuits = {}
+LEGEND_RE = re.compile(r'(\d+F)\s+([A-Za-z0-9\s\-_/]+?)\s+(\d+(?:\.\d+)?\s*k\s*W)(?:\s+(\d+)\s+([A-Z0-9\-_]+\s+[A-Za-z0-9\s()]+?))?(?=\s+\d+F|\s*$)', re.I)
+
+
+def page_legend(txt, pno):
+    """Feeder legend entries on one page: {feeder_no: dict(name, kw, controls, sheet)}."""
     legend = {}
+    t_up = txt.upper()
+    if "LEGENDS DETAILS" in t_up or "FEEDER DETAILS" in t_up or "FEEDER LIST" in t_up:
+        for m in LEGEND_RE.finditer(txt):
+            legend[m.group(1).upper()] = dict(name=re.sub(r'\s+', ' ', m.group(2)).strip(), kw=m.group(3).strip(),
+                                              controls=m.group(5).strip() if m.group(5) else "", sheet=pno)
+    return legend
 
-    # 1. Parse Feeder Legend sheets
-    for pno, page in enumerate(pdf.pages, start=1):
-        txt = page.extract_text() or ""
-        t_up = txt.upper()
-        if "LEGENDS DETAILS" in t_up or "FEEDER DETAILS" in t_up or "FEEDER LIST" in t_up:
-            for m in re.finditer(r'(\d+F)\s+([A-Za-z0-9\s\-_/]+?)\s+(\d+(?:\.\d+)?\s*k\s*W)(?:\s+(\d+)\s+([A-Z0-9\-_]+\s+[A-Za-z0-9\s()]+?))?(?=\s+\d+F|\s*$)', txt, re.I):
-                f_no = m.group(1).upper()
-                name = re.sub(r'\s+', ' ', m.group(2)).strip()
-                kw = m.group(3).strip()
-                ctrl = m.group(5).strip() if m.group(5) else ""
-                legend[f_no] = dict(name=name, kw=kw, controls=ctrl, sheet=pno)
 
-    # 2. Parse SLD sheets
-    for pno, page in enumerate(pdf.pages, start=1):
-        txt = (page.extract_text() or "").upper()
-        if not ("SINGLE LINE DIAGRAM" in txt or "SLD" in txt):
-            continue
-        words = page.extract_words()
-        f_words = [w for w in words if re.match(r'^(F[A-Z0-9]+|\d+F)$', w['text']) and 180 <= w['top'] <= 340]
-        if not f_words:
-            f_words = [w for w in words if re.match(r'^(F[A-Z0-9]+|\d+F)$', w['text']) and 100 <= w['top'] <= 380]
-        
-        f_words.sort(key=lambda w: w['x0'])
-        xs = [w['x0'] for w in f_words]
+def page_sld(page, txt, pno):
+    """Feeder columns of one single-line-diagram page: {feeder_no: circuit dict}."""
+    circuits = {}
+    txt = (txt or "").upper()
+    if not ("SINGLE LINE DIAGRAM" in txt or "SLD" in txt):
+        return circuits
+    words = page.extract_words()
+    f_words = [w for w in words if re.match(r'^(F[A-Z0-9]+|\d+F)$', w['text']) and 180 <= w['top'] <= 340]
+    if not f_words:
+        f_words = [w for w in words if re.match(r'^(F[A-Z0-9]+|\d+F)$', w['text']) and 100 <= w['top'] <= 380]
+    
+    f_words.sort(key=lambda w: w['x0'])
+    xs = [w['x0'] for w in f_words]
 
-        for i, fw in enumerate(f_words):
-            f_code = fw['text']
-            fx = fw['x0']
-            x_left = (xs[i-1] + fx) / 2 if i > 0 else fx - 65
-            x_right = (fx + xs[i+1]) / 2 if i < len(xs) - 1 else fx + 85
+    for i, fw in enumerate(f_words):
+        f_code = fw['text']
+        fx = fw['x0']
+        x_left = (xs[i-1] + fx) / 2 if i > 0 else fx - 65
+        x_right = (fx + xs[i+1]) / 2 if i < len(xs) - 1 else fx + 85
 
-            col_words = [w for w in words if x_left <= w['x0'] <= x_right and w['top'] >= fw['top']]
-            col_words.sort(key=lambda w: w['top'])
-            col_txt = ' '.join(w['text'] for w in col_words)
+        col_words = [w for w in words if x_left <= w['x0'] <= x_right and w['top'] >= fw['top']]
+        col_words.sort(key=lambda w: w['top'])
+        col_txt = ' '.join(w['text'] for w in col_words)
 
-            m = re.match(r'^F(\d+)$', f_code)
-            f_key = f"{m.group(1)}F" if m else f_code
+        m = re.match(r'^F(\d+)$', f_code)
+        f_key = f"{m.group(1)}F" if m else f_code
 
-            # MCB
-            m_mcb = re.search(r'(\d+F-MCB|MCB-\d+|INC-MCCB)?\s*([123]P\s*,\s*\d+A)', col_txt)
-            mcb = f"{m_mcb.group(1) or ''} {m_mcb.group(2)}".strip() if m_mcb else ""
+        # MCB
+        m_mcb = re.search(r'(\d+F-MCB|MCB-\d+|INC-MCCB)?\s*([123]P\s*,\s*\d+A)', col_txt)
+        mcb = f"{m_mcb.group(1) or ''} {m_mcb.group(2)}".strip() if m_mcb else ""
 
-            # Contactors
-            m_cs = re.findall(r'(\d+F-C\d?)\s*([123]P\s*,\s*\d+A|\d+A)', col_txt)
-            contactor = ", ".join(f"{c[0]} {c[1]}" for c in m_cs)
+        # Contactors
+        m_cs = re.findall(r'(\d+F-C\d?)\s*([123]P\s*,\s*\d+A|\d+A)', col_txt)
+        contactor = ", ".join(f"{c[0]} {c[1]}" for c in m_cs)
 
-            # OLR
-            m_olr = re.search(r'(\d+F-OLR)\s*(\d+(?:\.\d+)?-\d+(?:\.\d+)?A)?', col_txt)
-            olr = f"{m_olr.group(1)} {m_olr.group(2) or ''}".strip() if m_olr else ""
+        # OLR
+        m_olr = re.search(r'(\d+F-OLR)\s*(\d+(?:\.\d+)?-\d+(?:\.\d+)?A)?', col_txt)
+        olr = f"{m_olr.group(1)} {m_olr.group(2) or ''}".strip() if m_olr else ""
 
-            # Cable
-            m_cable = re.search(r'(\d+(?:\.\d+)?\s*SQ\.?\s*MM)', col_txt, re.I)
-            cable = m_cable.group(1).upper() if m_cable else ""
-            m_cores = re.search(r'\b((?:RD|YL|YE|BL|BU|BK|GY)(?:/(?:RD|YL|YE|BL|BU|BK|GY)){1,4})\b', col_txt)
-            if cable and m_cores:
-                cable += f" ({m_cores.group(1)})"     # core colours printed under the cable size on the SLD
+        # Cable
+        m_cable = re.search(r'(\d+(?:\.\d+)?\s*SQ\.?\s*MM)', col_txt, re.I)
+        cable = m_cable.group(1).upper() if m_cable else ""
+        m_cores = re.search(r'\b((?:RD|YL|YE|BL|BU|BK|GY)(?:/(?:RD|YL|YE|BL|BU|BK|GY)){1,4})\b', col_txt)
+        if cable and m_cores:
+            cable += f" ({m_cores.group(1)})"     # core colours printed under the cable size on the SLD
 
-            # Motor kW
-            m_kw = re.search(r'(\d+(?:\.\d+)?\s*k\s*W)', col_txt, re.I)
-            kw = m_kw.group(1).replace(" ", "") if m_kw else ""
+        # Motor kW
+        m_kw = re.search(r'(\d+(?:\.\d+)?\s*k\s*W)', col_txt, re.I)
+        kw = m_kw.group(1).replace(" ", "") if m_kw else ""
 
-            # Starter
-            upper_col = col_txt.upper()
-            if re.search(r"STAR\s*[-/]?\s*DELTA|S\s*/\s*D", upper_col):
-                starter = "STAR-DELTA"
-            elif len(m_cs) >= 3 and re.search(r"\bC[123]\b", upper_col):
-                starter = "STAR-DELTA"
-            elif kw:
-                starter = "DOL"
-            else:
-                starter = "FEEDER"
+        # Starter
+        upper_col = col_txt.upper()
+        if re.search(r"STAR\s*[-/]?\s*DELTA|S\s*/\s*D", upper_col):
+            starter = "STAR-DELTA"
+        elif len(m_cs) >= 3 and re.search(r"\bC[123]\b", upper_col):
+            starter = "STAR-DELTA"
+        elif kw:
+            starter = "DOL"
+        else:
+            starter = "FEEDER"
 
-            # Motor / Terminal tag
-            term_tag = ""
-            for tw in col_words:
-                if 350 <= tw['top'] <= 680 and re.match(r'^[A-Z]{2,4}-[A-Z0-9]+$', tw['text']):
-                    term_tag = tw['text']
-                    break
+        # Motor / Terminal tag
+        term_tag = ""
+        for tw in col_words:
+            if 350 <= tw['top'] <= 680 and re.match(r'^[A-Z]{2,4}-[A-Z0-9]+$', tw['text']):
+                term_tag = tw['text']
+                break
 
-            # Description strictly above title block (top <= 680)
-            desc_lines = []
-            for w in col_words:
-                if 540 <= w['top'] <= 680 and not re.match(r'^(M|DOL|RD/.*|TITLE.*|AQUACARE.*|\d+\s*SQ.*|\d+kW|[123]PH.*|SYSTEM.*)$', w['text']):
-                    desc_lines.append(w['text'])
-            desc = " ".join(desc_lines)
-            if "UV SYSTEM" in col_txt:
-                desc = "UV SYSTEM"
+        # Description strictly above title block (top <= 680)
+        desc_lines = []
+        for w in col_words:
+            if 540 <= w['top'] <= 680 and not re.match(r'^(M|DOL|RD/.*|TITLE.*|AQUACARE.*|\d+\s*SQ.*|\d+kW|[123]PH.*|SYSTEM.*)$', w['text']):
+                desc_lines.append(w['text'])
+        desc = " ".join(desc_lines)
+        if "UV SYSTEM" in col_txt:
+            desc = "UV SYSTEM"
 
-            circuits[f_key] = dict(
-                feeder_no=f_key,
-                description=desc,
-                rating_kw=kw,
-                starter_type=starter,
-                mcb=mcb,
-                contactor=contactor,
-                olr=olr,
-                cable_size=cable,
-                terminal=term_tag,
-                controls="",
-                sheet=pno
-            )
+        circuits[f_key] = dict(
+            feeder_no=f_key,
+            description=desc,
+            rating_kw=kw,
+            starter_type=starter,
+            mcb=mcb,
+            contactor=contactor,
+            olr=olr,
+            cable_size=cable,
+            terminal=term_tag,
+            controls="",
+            sheet=pno
+        )
 
-    # 3. Merge legend details
+    return circuits
+
+
+def merge_circuits(legend, circuits):
+    # merge legend details
     for f_no, leg in legend.items():
         if f_no in circuits:
             if leg["name"]:
@@ -160,3 +163,13 @@ def extract_circuits(pdf):
 
 
 
+
+
+def extract_circuits(pdf):
+    """Whole-document helper (sequential): legend + SLD feeders of every page."""
+    legend, circuits = {}, {}
+    for pno, page in enumerate(pdf.pages, start=1):
+        txt = page.extract_text() or ""
+        legend.update(page_legend(txt, pno))
+        circuits.update(page_sld(page, txt, pno))
+    return merge_circuits(legend, circuits)

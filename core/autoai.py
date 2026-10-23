@@ -71,11 +71,12 @@ def enrich_doc(doc_id, client):
     return n, m
 
 
-def run(doc_id):
-    """Returns a short status string, '' if AI is off or nothing was needed."""
+def run(doc_id, step=None):
+    """Returns a short status string, '' if AI is off or nothing was needed. `step(text)` reports progress."""
     client = ai_assist.get_client()
     if not client.ready:
         return ""
+    step = step or (lambda text: None)
     doc = db.q("SELECT * FROM documents WHERE id=?", (doc_id,), one=True)
     notes = []
     try:
@@ -90,11 +91,13 @@ def run(doc_id):
                     continue
                 try:
                     if s["draw_type"] in VISION_TYPES and str(n) not in have_io:
+                        step(f"reading PLC sheet {n} from the image")
                         png = page_png(pdf.pages[n - 1], 130)
                         replace_sheet_rows(doc, n, VISION_TYPES[s["draw_type"]], ai_assist.reread_sheet(png, VISION_TYPES[s["draw_type"]], client),
                                            "read by AI vision - verify")
                         read += 1
                     elif s["scanned"] and not ocr_available() and s["kind"] != "index":
+                        step(f"reading scanned sheet {n}")
                         info = ai_assist.read_scanned_sheet(page_png(pdf.pages[n - 1], 130), client)
                         t = str(info.get("sheet_type", "")).upper()
                         if t in ("DI", "DO", "AI", "AO", "RTD", "TC") and info.get("channels"):
@@ -114,10 +117,12 @@ def run(doc_id):
             specs = []
             for s in sheets:
                 if s["draw_type"] in ("external_ga", "internal_ga", "general_specs") and str(s["sheet"]) not in got and 1 <= s["sheet"] <= len(pdf.pages):
+                    step(f"reading specifications on sheet {s['sheet']}")
                     specs += ai_assist.extract_specs(page_text(pdf.pages[s["sheet"] - 1]), s["sheet"], s["draw_type"], client)
             # 2b) GA layout (STRONG, vision): door items, sizes and view dimensions are drawn, not written as text
             for s in sheets:
                 if s["draw_type"] == "external_ga" and 1 <= s["sheet"] <= len(pdf.pages):
+                    step(f"reading the door layout on GA sheet {s['sheet']}")
                     try:
                         lay = ai_assist.read_ga_layout(page_png(pdf.pages[s["sheet"] - 1], 150), client)
                     except LLMError as e:
@@ -134,9 +139,11 @@ def run(doc_id):
                             specs.append(dict(sheet=s["sheet"], category="GA Views (AI vision - verify)", property_name=v["view"],
                                               property_value=str(v["dimensions"]), unit="mm", raw_text=str(v["dimensions"])))
                     notes.append(f"GA sheet {s['sheet']} layout read by vision")
+            db.x("DELETE FROM panel_specs WHERE doc_id=? AND category LIKE '%(AI vision%'", (doc_id,))     # re-runs replace, not duplicate
             if specs:
                 db.insert_many("panel_specs", doc["project_id"], doc_id, specs)
         # 3) enrichment + classification (FAST)
+        step("filling field devices and classifying devices")
         n, m = enrich_doc(doc_id, client)
         if n or m:
             notes.append(f"AI filled {n} I/O fields, classified {m} devices")
@@ -146,3 +153,53 @@ def run(doc_id):
         traceback.print_exc()
         notes.append(f"AI skipped: {str(e)[:80]}")
     return "; ".join(notes)
+
+
+# ------------------------------------------------------------------------------------------------ background jobs
+# One AI job per project, run in a background thread so extraction results are usable immediately and the UI can show progress.
+import threading, time as _time
+JOBS = {}
+_jobs_lock = threading.Lock()
+
+
+def job_status(pid):
+    j = JOBS.get(pid)
+    return dict(j) if j else dict(state="idle")
+
+
+def start_job(pid, doc_ids):
+    """Start (or keep) the AI pass for these documents. Returns the job status."""
+    with _jobs_lock:
+        j = JOBS.get(pid)
+        if j and j["state"] == "running":              # batch upload: queue behind the running pass
+            new = [d for d in doc_ids if d not in j["queue"]]
+            j["queue"] += new
+            j["total"] += len(new)
+            return dict(j)
+        j = JOBS[pid] = dict(state="running", step="starting", done=0, total=len(doc_ids), notes=[], started=_time.time(), finished=None,
+                             queue=list(doc_ids))
+
+    def work():
+        try:
+            while True:
+                with _jobs_lock:
+                    if not j["queue"]:
+                        j["state"] = "finished"          # under the lock, so a document queued now starts a new job
+                        break
+                    did = j["queue"].pop(0)
+                doc = db.q("SELECT filename FROM documents WHERE id=?", (did,), one=True) or {"filename": ""}
+                j["step"] = f"{doc['filename'][:40]}: starting"
+                note = run(did, step=lambda text, fn=doc["filename"][:40]: j.__setitem__("step", f"{fn}: {text}"))
+                if note:
+                    j["notes"].append(note)
+                row = db.q("SELECT message FROM documents WHERE id=?", (did,), one=True)
+                base = (row["message"] or "").split(" | AI pass")[0].split(" | AI ")[0] if row else ""
+                db.x("UPDATE documents SET message=? WHERE id=?", (base + " | " + (note or "AI pass finished - nothing needed filling"), did))
+                j["done"] += 1
+        except Exception as e:  # noqa
+            traceback.print_exc()
+            j["state"], j["notes"] = "failed", j["notes"] + [str(e)[:200]]
+        finally:
+            j["step"], j["finished"] = "", _time.time()
+    threading.Thread(target=work, daemon=True).start()
+    return dict(j)

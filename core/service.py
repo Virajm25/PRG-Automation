@@ -96,17 +96,18 @@ def ingest(doc_id):
         msg = f"{len(res['io'])} I/O{circ_msg}, {len(devs)} devices, {len(wires)} ferrules, {len(cables)} cables, {len(res.get('bom', []))} BOM lines" + (f", {auto} learned corrections applied" if auto else "")
         if res["warnings"]:
             msg += " | " + "; ".join(res["warnings"][:3])
-        if os.environ.get("VERCEL"):
-            # serverless: extraction runs inside the upload request; a full AI pass would exceed the function time limit
-            ai_note = "AI pass not run automatically on the web version - use Re-run AI" if autoai.ai_assist.ai_enabled() else ""
+        if autoai.ai_assist.ai_enabled():
+            # the AI pass runs after the document is marked done (background job with its own progress), so the extracted data
+            # is usable right away; serverless hosts cannot keep a background thread alive, there the user starts it with Re-run AI
+            ai_note = "AI pass: use Re-run AI on the web version" if os.environ.get("VERCEL") else "AI pass running in the background"
         else:
-            db.x("UPDATE documents SET status='ai', progress=100, panel=?, message=? WHERE id=?",
-                 (res["meta"].get("project", ""), msg + " | AI pass running", doc_id))
-            ai_note = autoai.run(doc_id)       # no-op when no AI provider is configured
+            ai_note = ""
         if ai_note:
             msg += " | " + ai_note
         db.x("UPDATE documents SET status='done', progress=100, panel=?, message=? WHERE id=?",
              (res["meta"].get("project", ""), msg, doc_id))
+        if ai_note and not os.environ.get("VERCEL"):
+            autoai.start_job(pid, [doc_id])
     except Exception as e:  # noqa
         traceback.print_exc()
         db.x("UPDATE documents SET status='error', message=? WHERE id=?", (str(e)[:300], doc_id))

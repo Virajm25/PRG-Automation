@@ -73,6 +73,8 @@ h1.t{font-size:19px;margin:0 0 3px}
 .doc .msg{grid-column:1/-1;color:var(--mut);font-size:12px}
 .prog{height:5px;border-radius:3px;background:var(--line);overflow:hidden;grid-column:1/-1}
 .prog i{display:block;height:100%;background:var(--brand);transition:width .3s}
+.prog.ind i{width:35%!important;animation:ind 1.2s ease-in-out infinite}
+@keyframes ind{0%{margin-left:-35%}100%{margin-left:100%}}
 .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid transparent;white-space:nowrap}
 .pill.done{background:var(--ok-soft);color:var(--ok)}.pill.error{background:var(--bad-soft);color:var(--bad)}
 .pill.processing,.pill.queued,.pill.ai{background:var(--warn-soft);color:var(--warn)}
@@ -143,6 +145,7 @@ td.act .btn{opacity:0}tr:hover td.act .btn{opacity:1}
 .menu{position:relative;display:inline-block}.menu .dd{display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:6;min-width:150px;box-shadow:0 6px 20px #0002;overflow:hidden}
 .menu.open .dd{display:block}.dd button{display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer}.dd button:hover{background:var(--brand-soft)}
 .toast{position:fixed;bottom:36px;right:16px;background:var(--ink);color:var(--panel);padding:10px 14px;border-radius:8px;display:none;z-index:30;max-width:440px;box-shadow:0 6px 20px #0003}
+.aistep{max-width:28vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 footer.status{height:26px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--mut);font-size:11.5px}
 footer .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:var(--mut)}
 footer .dot.ok{background:var(--ok)}footer .dot.warn{background:var(--warn)}
@@ -157,6 +160,7 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;paddi
   </div>
   <div class="crumb" id="crumb"></div>
   <div class="sp"></div>
+  <span id="aiJob" style="display:none;gap:8px;align-items:center;max-width:42vw"></span>
   <span id="hdrActs" style="display:none;gap:8px;align-items:center">
     <button class="btn" onclick="go('drawings');file.click()" title="Upload one or more drawing PDFs">Upload PDFs</button>
     <button class="btn" id="aiBtn" onclick="aiRun()" style="display:none" title="Run the AI pass again on all drawings">Re-run AI</button>
@@ -234,7 +238,7 @@ let P=null,V="home",TAB=null,ENV={},AI={},OV=null,DOCS=[],state={q:"",flt:"",rev
 /* -------- routing -------- */
 function goHome(){P=null;V="home";closePreview();render()}
 function go(v,tab){V=v;const n=NAV.find(x=>x.id==v);TAB=tab||(n&&n.tabs?n.tabs[0][0]:null);state={q:"",flt:"",review:false,sort:null,limit:500};render()}
-async function openProject(p){P=p;await refreshOverview();go("overview")}
+async function openProject(p){P=p;await refreshOverview();go("overview");aiPoll()}
 let RT=0;   // render token: a slower async view never overwrites the one the user moved to
 function render(){
  RT++;
@@ -302,8 +306,8 @@ async function viewOverview(){
  if(busy)poll()}
 function docList(ds){return ds.map(d=>{const st=d.status;const pct=st=="done"?100:(d.progress||0);
  return `<div class="doc"><span class="nm" title="${esc(d.filename)}">${esc(d.filename)}</span><span><span class="pill ${st}">${st=="ai"?"AI pass":st}</span> <button class="btn sm ghost danger" onclick="delDoc(${d.id})" aria-label="Remove drawing">Remove</button></span>
-  ${st=="done"||st=="error"?"":`<div class="prog"><i style="width:${pct}%"></i></div>`}<div class="msg">${d.pages?d.pages+" pages · ":""}${esc(d.message||"")}</div></div>`}).join("")}
-let pollT;function poll(){clearTimeout(pollT);pollT=setTimeout(async()=>{await refreshOverview();if(V=="overview"||V=="drawings")render();},1500)}
+  ${st=="done"||st=="error"?"":`<div class="prog ${st=="queued"?"ind":""}"><i style="width:${pct}%"></i></div>`}<div class="msg">${st=="processing"&&d.pages?`Reading pages - ${Math.round(pct*d.pages/100)} of ${d.pages} (${pct}%)`:st=="queued"?"Waiting to start...":(d.pages?d.pages+" pages · ":"")+esc(d.message||"")}</div></div>`}).join("")}
+let pollT;function poll(){clearTimeout(pollT);pollT=setTimeout(async()=>{await refreshOverview();if(!aiBar._running)aiPoll();if(V=="overview"||V=="drawings")render();},1500)}
 
 /* -------- drawings: batch upload + sheet register -------- */
 async function viewDrawings(){
@@ -313,12 +317,13 @@ async function viewDrawings(){
  if(rt!==RT)return;$("main").innerHTML=`<div class="view tablev"><h1 class="t">Drawings & sheets</h1>
   <div class="drop" id="drop"><b>Drop drawing PDFs here</b> or <button class="btn sm" onclick="file.click()">Browse...</button>
    <div class="meta" style="margin-top:4px">Batch processing: select several PDFs at once. Vector PDFs are read directly; scanned pages use OCR${ENV.ocr?"":" (not installed - "+(AI.enabled?"AI vision is used instead":"install Tesseract")+")"}.</div></div>
+  <div class="card" id="uppanel" style="padding:0;margin:10px 0 0;display:none"></div>
   <div class="card" style="padding:0;margin:10px 0;max-height:190px;overflow:auto">${docList(OV.docs)||'<div class="empty" style="padding:16px">No drawings uploaded yet</div>'}</div>
   <div class="tools"><input type="search" id="q" placeholder="Search sheets (title, type, drawing no.)" value="${esc(state.q)}" oninput="state.q=this.value;drawSheets()" aria-label="Search sheets">
    <select id="flt" onchange="state.flt=this.value;drawSheets()" aria-label="Filter by drawing type"><option value="">All drawing types</option>${types.map(t=>`<option ${t==state.flt?"selected":""}>${esc(t)}</option>`).join("")}</select>
    <button class="btn" onclick="reprocess()" ${OV.docs.length?"":"disabled"} title="Run extraction again on every drawing of this project">Re-extract all</button><span class="cnt" id="cnt"></span></div>
   <div class="work"><div class="tbl" id="tbl"></div><div class="split" id="split"></div>${previewHTML()}</div></div>`;
- wireDrop();wireSplit();drawSheets();restorePreview();
+ wireDrop();wireSplit();drawSheets();restorePreview();upPanel();
  if(OV.docs.some(d=>["processing","queued","ai"].includes(d.status)))poll()}
 function drawSheets(){const q=state.q.toLowerCase(),f=state.flt;
  const rs=(window._sheets||[]).filter(r=>(!f||(r.draw_type_label||"Unknown")==f)&&(!q||[r.title,r.draw_type_label,r.drawing_no,r.revision,r.filename,r.label].join(" ").toLowerCase().includes(q)));
@@ -329,10 +334,26 @@ function drawSheets(){const q=state.q.toLowerCase(),f=state.flt;
 function wireDrop(){const d=$("drop");if(!d)return;["dragover","dragenter"].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.add("over")}));
  ["dragleave","drop"].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.remove("over")}));d.addEventListener("drop",ev=>upload(ev.dataTransfer.files))}
 $("file").onchange=e=>{upload(e.target.files);e.target.value=""};
+function xhrUpload(url,fd,onProgress){return new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open("POST",url);
+ x.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded/e.total)};x.upload.onload=()=>onProgress(1);
+ x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch(e){}x.status<300?res(j):rej(new Error(j.error||x.statusText||("HTTP "+x.status)))};
+ x.onerror=()=>rej(new Error("Cannot reach the application server"));x.send(fd)})}
+let UP=null;   // current upload: {names, pct, phase:'upload'|'extract', t0}
+function upPanel(){const el=$("uppanel");if(!el)return;if(!UP){el.innerHTML="";el.style.display="none";return}el.style.display="";
+ const secs=Math.round((Date.now()-UP.t0)/1000);
+ const label=UP.phase=="upload"?`Uploading ${UP.names.length} file(s) - ${Math.round(UP.pct*100)}%`:(ENV.vercel?`Extracting on the server... ${secs}s (stay on this page)`:`Upload complete - extraction is running`);
+ el.innerHTML=`<div class="doc"><span class="nm">${esc(label)}</span><span class="pill processing">${UP.phase=="upload"?"uploading":"processing"}</span>
+  <div class="prog ${UP.phase=="extract"&&ENV.vercel?"ind":""}"><i style="width:${UP.phase=="upload"?Math.round(UP.pct*100):100}%"></i></div><div class="msg">${esc(UP.names.join(", ").slice(0,160))}</div></div>`}
 async function upload(files){const list=[...files].filter(f=>/\.pdf$/i.test(f.name));if(!list.length){toast("Choose PDF files");return}
  if(ENV.vercel&&list.some(f=>f.size>4*1024*1024)){toast("The web demo accepts files up to about 4 MB. Use the Windows application for larger drawings.",7000);return}
- const fd=new FormData();list.forEach(f=>fd.append("files",f));toast(`Uploading ${list.length} file(s)...`);
- try{await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});toast(`${list.length} file(s) queued for extraction`);if(V!="drawings")go("drawings");else viewDrawings()}catch(e){toast("Upload failed: "+e.message,7000)}}
+ if(V!="drawings")go("drawings");
+ const fd=new FormData();list.forEach(f=>fd.append("files",f));
+ UP={names:list.map(f=>f.name),pct:0,phase:"upload",t0:Date.now()};upPanel();
+ const tick=setInterval(upPanel,1000);
+ try{await xhrUpload(`/api/projects/${P.id}/upload`,fd,pct=>{UP.pct=pct;if(pct>=1)UP.phase="extract";upPanel()});
+  toast(ENV.vercel?`${list.length} file(s) extracted`:`${list.length} file(s) uploaded - extraction running`);
+ }catch(e){toast("Upload failed: "+e.message,7000)}
+ finally{clearInterval(tick);UP=null;upPanel();viewDrawings()}}
 async function delDoc(id){if(!await confirmBox("Remove this drawing?","Its extracted data is removed from all tables.","Remove"))return;await api("/api/docs/"+id,{method:"DELETE"});toast("Drawing removed");render()}
 async function reprocess(){if(!await confirmBox("Re-extract all drawings?","Rows extracted from the drawings are rebuilt using the latest learned corrections. Manual edits on those rows are replaced.","Re-extract"))return;
  await api(`/api/projects/${P.id}/reprocess`,{method:"POST"});toast("Re-extraction started");render()}
@@ -465,7 +486,19 @@ async function loadStatus(){try{ENV=await api("/api/env")}catch(e){}try{AI=await
  $("stAi").innerHTML=`<span class="dot ${AI.enabled?"ok":"warn"}"></span>AI ${AI.enabled?"on":"off"}`;$("stAi").title=AI.enabled?`Text: ${AI.fast_model} · Drawing images: ${AI.vision_model}`:(AI.hint||"No AI provider configured in .env");
  $("stOcr").innerHTML=`<span class="dot ${ENV.ocr?"ok":"warn"}"></span>OCR ${ENV.ocr?"ready":"not installed"}`;$("stOcr").title=ENV.ocr?"Tesseract found - scanned PDFs are read":"Install Tesseract-OCR to read scanned PDFs";
  $("stData").textContent=ENV.data_folder?"Data: "+ENV.data_folder:"";$("aiBtn").style.display=AI.enabled?"":"none"}
-async function aiRun(){toast("Running the AI pass on all drawings...",60000);try{const r=await api(`/api/projects/${P.id}/ai/run`,{method:"POST"});toast(r.notes.join(" | ")||"AI pass finished - nothing needed filling",6000);render()}catch(e){toast(e.message,6000)}}
+let aiT=null;
+function aiBar(j){const el=$("aiJob");if(!el)return;
+ if(!j||j.state!="running"){el.style.display="none";el.innerHTML="";$("aiBtn").disabled=false;$("aiBtn").textContent="Re-run AI";return}
+ el.style.display="inline-flex";$("aiBtn").disabled=true;$("aiBtn").textContent="AI running...";
+ el.innerHTML=`<span class="pill processing">AI pass</span><span class="aistep" title="${esc(j.step)}">${esc(j.step||"starting")}</span><span class="meta">${j.done}/${j.total} file(s) · ${j.elapsed||0}s</span>`}
+async function aiPoll(){clearTimeout(aiT);if(!P)return;let j;try{j=await api(`/api/projects/${P.id}/ai/job`)}catch(e){return}
+ const was=aiBar._running;aiBar._running=j.state=="running";aiBar(j);
+ if(j.state=="running"){aiT=setTimeout(aiPoll,2000);return}
+ if(was&&j.state=="finished"){toast("AI pass finished. "+(j.notes||[]).join(" | ").slice(0,300),8000);refreshOverview();if(V!="overview"&&V!="drawings")loadTable?.();else render()}
+ if(was&&j.state=="failed")toast("AI pass failed: "+(j.notes||[]).slice(-1)[0],8000)}
+async function aiRun(){try{const r=await api(`/api/projects/${P.id}/ai/run`,{method:"POST"});
+ if(r.state=="running"){toast("AI pass started - it runs in the background, you can keep working",4000);aiBar._running=true;aiBar({...r,elapsed:0});aiPoll()}
+ else{toast((r.notes||[]).join(" | ")||"AI pass finished - nothing needed filling",6000);render()}}catch(e){toast(e.message,6000)}}
 
 /* -------- dialogs -------- */
 function dialog(html,focusId){$("dlg").innerHTML=html;$("modal").classList.add("on");setTimeout(()=>{const f=focusId?$(focusId):$("dlg").querySelector("button.pri");if(f)f.focus()},30)}

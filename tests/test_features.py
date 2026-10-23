@@ -75,6 +75,10 @@ ai_assist._client = llm.Claude(api_key="sk-test")
 pid2 = db.x("INSERT INTO projects(name,client,created) VALUES('scan','',0)")
 did2 = db.x("INSERT INTO documents(project_id,filename,path,status,created) VALUES(?,?,?,?,0)", (pid2, "scan", scan, "queued"))
 service.ingest(did2)
+for _ in range(240):                       # the AI pass runs as a background job after extraction
+    if autoai.job_status(pid2).get("state") in ("finished", "failed", "idle"):
+        break
+    time.sleep(0.5)
 import core.pdfio as pio
 if not pio.ocr_available():
     assert db.q("SELECT COUNT(*) n FROM devices WHERE doc_id=? AND source='ai-vision'", (did2,), one=True)["n"] == 1

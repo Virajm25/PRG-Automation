@@ -347,12 +347,28 @@ def ai_status():
 
 @app.post("/api/projects/<int:pid>/ai/run")
 def ai_run(pid):
-    """Re-run the AI pass on every document of the project (it already runs automatically after each extraction)."""
+    """Start the AI pass on every document of the project. Desktop: background job, poll /ai/job for progress.
+    Serverless: runs inside the request (no background threads there)."""
     from core import autoai
     if not autoai.ai_assist.ai_enabled():
-        return J({"error": "AI is off: set an AI provider key in .env (ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY) or OLLAMA_MODEL"}, 400)
-    notes = [autoai.run(d["id"]) for d in db.q("SELECT id FROM documents WHERE project_id=?", (pid,))]
-    return J({"ok": True, "notes": [n for n in notes if n]})
+        return J({"error": "AI is off: set an AI provider key in .env"}, 400)
+    ids = [d["id"] for d in db.q("SELECT id FROM documents WHERE project_id=? AND status='done'", (pid,))]
+    if not ids:
+        return J({"error": "no processed drawings in this project yet"}, 400)
+    if SERVERLESS:
+        notes = [autoai.run(i) for i in ids]
+        return J(dict(state="finished", done=len(ids), total=len(ids), step="", notes=[n for n in notes if n]))
+    return J(autoai.start_job(pid, ids))
+
+
+@app.get("/api/projects/<int:pid>/ai/job")
+def ai_job(pid):
+    from core import autoai
+    j = autoai.job_status(pid)
+    j.pop("queue", None)
+    if j.get("started"):
+        j["elapsed"] = round((j.get("finished") or time.time()) - j["started"])
+    return J(j)
 
 
 @app.post("/api/docs/<int:did>/sheet/<int:sheet>/reread")

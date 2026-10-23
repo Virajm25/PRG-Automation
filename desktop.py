@@ -15,6 +15,8 @@ def serve():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()          # the packaged .exe starts page-extraction worker processes
     if _free(PORT):
         threading.Thread(target=serve, daemon=True).start()
         time.sleep(1.2)

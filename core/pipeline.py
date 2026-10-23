@@ -6,7 +6,7 @@ from .io_extract import is_io_sheet, extract_io_sheet, classify_module
 from .devices import extract_devices, scan_catalog_parts, merge_devices, classify
 from .wires import extract_wires, dedupe_wires
 from .pagemeta import title_of, sheet_label, project_meta
-from .circuits import extract_circuits, is_feeder_sheet
+from .circuits import page_legend, page_sld, merge_circuits, is_feeder_sheet
 from .sheet_classify import classify_sheet, extract_title_block, DRAW_TYPE_LABEL
 from .ga_extract import extract_panel_specs_from_text, extract_sheet_specs
 from .bom_extract import is_bom_text, parse_bom_text
@@ -45,121 +45,204 @@ def _module_key(mod, title):
     return (t, m.group(1) if m else (mod.get("module_name") or "?"))
 
 
-def process_pdf(path, progress=None, use_ocr=True):
-    res = dict(sheets=[], io=[], circuits=[], devices=[], wires=[], xrefs=[], tags=[], modules=[], meta={}, panel_specs=[], bom=[], td_terminals=[], td_cables=[], td_ferrules=[], symbols=[], nets=[], annotations=[], warnings=[])
-    anchored_all, scanned_all = [], []
-    with open_pdf(path) as pdf:
-        n = len(pdf.pages)
+RESULT_KEYS = ("sheets", "devices", "wires", "xrefs", "tags", "panel_specs", "bom", "td_terminals", "td_cables", "td_ferrules",
+               "symbols", "nets", "annotations", "warnings")
+
+
+def _process_page(page, i, use_ocr=True):
+    """Everything extracted from one page (independent of other pages, so pages can run in parallel)."""
+    out = {k: [] for k in RESULT_KEYS}
+    out.update(raw_mods=[], anchored=[], scanned_parts=[], meta={}, legend={}, sld={}, sheet=i)
+    text0 = page.extract_text() or ""
+    try:
+        out["legend"] = page_legend(text0, i)
+        out["sld"] = page_sld(page, text0, i)
+    except Exception:
+        out["warnings"].append(f"sheet {i}: feeder details could not be read")
+    scanned = is_scanned(page)
+    chars = None
+    text = page_text(page)
+    if scanned:
+        if use_ocr:
+            w = ocr_page_words(page)
+            chars = ocr_to_chars(w)
+            text = " ".join(x["text"] for x in w)
+            if not w:
+                out["warnings"].append(f"sheet {i}: scanned page but OCR (tesseract) unavailable")
+        else:
+            out["warnings"].append(f"sheet {i}: scanned page skipped (OCR disabled)")
+    title = title_of(text)
+    draw_type = classify_sheet(text)
+    tb = extract_title_block(text)
+    # Extract structured specifications from GA & Specs sheets
+    if draw_type in ("external_ga", "internal_ga", "general_specs", "feeder_legend", "table_of_contents") or "PANEL DETAILS" in text.upper():
         try:
-            res["circuits"] = extract_circuits(pdf)
+            specs = extract_sheet_specs(page, i, draw_type, text)
+            if specs:
+                out["panel_specs"].extend(specs)
         except Exception:
-            res["circuits"] = []
-        raw_mods = []
+            out["warnings"].append(f"sheet {i}: specification tables could not be read")
+    # Derive legacy 'kind' from draw_type for backward compatibility
+    if draw_type in ("plc_di", "plc_do", "plc_ai", "plc_ao", "plc_cpu"):
+        kind = "io"
+    elif draw_type in ("table_of_contents", "title_page"):
+        kind = "index"
+    elif is_io_sheet(text) and (chars is None or chars):
+        kind = "io"
+    else:
+        kind = "schematic"
+    if title.upper().startswith(("TABLE OF CONTENTS", "TITLE PAGE")) or "TABLE OF CONTENTS" in text[:200].upper():
+        kind = "index"
+    display_title = (tb.get("drawing_title") or title or text.split("\n")[0][:60]).strip()
+    out["sheets"].append(dict(
+        sheet=i,
+        title=display_title,
+        label=tb.get("sheet_no") or sheet_label(text),
+        kind=kind,
+        draw_type=draw_type,
+        draw_type_label=DRAW_TYPE_LABEL.get(draw_type, "Unknown"),
+        drawing_no=tb.get("drawing_no", ""),
+        revision=tb.get("revision", ""),
+        section_view=tb.get("section_view", ""),
+        scanned=scanned,
+        chars=len(page.chars),
+    ))
+    if i == 1 or not out["meta"]:
+        out["meta"].update(project_meta(text))
+    if kind == "index" or (draw_type in ("title_page", "unknown") and len(page.lines) < 30):
+        if chars is None and draw_type != "table_of_contents":
+            out["annotations"] += page_annotations(page, i)
+        if kind == "index":
+            return out
+    if draw_type == "bom" or is_bom_text(text):
+        try:
+            out["bom"].extend(parse_bom_text(text, i))
+        except Exception:
+            out["warnings"].append(f"sheet {i}: BOM sheet could not be parsed")
+        return out
+    ch = chars if chars is not None else upright_chars(page)
+    if kind == "io" and chars is None and len(page.lines) >= 30:
+        try:
+            sy, ne, xr, _c, an = recognize(page, i)
+            out["symbols"] += sy; out["xrefs"] += xr
+            out["annotations"] += [dict(a, sheet=i) for a in an]
+        except Exception:
+            pass
+    if kind == "io":
+        mod, rows = extract_io_sheet(page if chars is None else ch, text, i, ocr=chars is not None) if chars is None else (None, [])
+        if mod:
+            mod["title"] = title
+            out["raw_mods"].append((mod, rows))
+            return out
+    if is_terminal_detail(text):
+        try:
+            t_, c_, f_ = extract_terminal_detail(page, i, None if chars is None else ch)
+            out["td_terminals"] += t_; out["td_cables"] += c_; out["td_ferrules"] += f_
+            if chars is None:              # keep every printed label of the sheet (field descriptions, sizes) as annotations too
+                out["annotations"] += page_annotations(page, i)
+        except Exception:
+            out["warnings"].append(f"sheet {i}: terminal-detail parse failed")
+        return out
+    # schematic sheet
+    a = extract_devices(page, i, ch)
+    s = scan_catalog_parts(page, i, ch)
+    out["anchored"] += a
+    out["scanned_parts"] += s
+    if chars is None and len(page.lines) >= 30:
+        try:
+            sy, ne, xr, _c, an = recognize(page, i)
+            out["symbols"] += sy; out["nets"] += ne; out["xrefs"] += xr
+            out["annotations"] += [dict(a, sheet=i) for a in an]
+        except Exception as e:  # noqa
+            out["warnings"].append(f"sheet {i}: symbol recognition failed ({str(e)[:40]})")
+    w, x, t = extract_wires(page, i, ch)
+    out["wires"] += w
+    out["xrefs"] += x
+    out["tags"] += t
+    return out
+
+
+def _process_pages(path, pages, use_ocr=True):
+    """Worker: open the PDF and process the given 1-based page numbers."""
+    with open_pdf(path) as pdf:
+        return [_process_page(pdf.pages[i - 1], i, use_ocr) for i in pages]
+
+
+def _workers(n_pages):
+    if n_pages < 6 or os.environ.get("PRG_WORKERS") == "1":
+        return 1
+    try:
+        cpus = len(os.sched_getaffinity(0))
+    except AttributeError:
+        cpus = os.cpu_count() or 1
+    return max(1, min(int(os.environ.get("PRG_WORKERS") or 8), cpus - 1 if cpus > 2 else cpus, n_pages // 3))
+
+
+_POOL = None
+
+
+def _pool(workers):
+    """One worker pool for the life of the server, so later uploads do not pay the process start-up again."""
+    global _POOL
+    if _POOL is None:
+        from concurrent.futures import ProcessPoolExecutor
+        _POOL = ProcessPoolExecutor(max_workers=workers)
+    return _POOL
+
+
+def _run_pages(path, n, progress, use_ocr):
+    """Process all pages, in parallel worker processes when the machine has several cores (falls back to sequential, e.g. on
+    serverless hosts without shared memory). Results come back in page order."""
+    done, results, workers = 0, {}, _workers(n)
+    if workers > 1:
+        try:
+            from concurrent.futures import as_completed
+            global _POOL
+            ex = _pool(max(workers, _workers(48)))
+            chunks = [list(range(k, min(k + 2, n + 1))) for k in range(1, n + 1, 2)]
+            futs = {ex.submit(_process_pages, path, c, use_ocr): c for c in chunks}
+            for f in as_completed(futs):
+                for r in f.result():
+                    results[r["sheet"]] = r
+                done += len(futs[f])
+                if progress:
+                    progress(done, n)
+            return [results[k] for k in sorted(results)]
+        except Exception:
+            results, done = {}, 0          # sequential fallback below (and drop a broken pool)
+            try:
+                _POOL.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+            _POOL = None
+    with open_pdf(path) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
+            results[i] = _process_page(page, i, use_ocr)
             if progress:
                 progress(i, n)
-            scanned = is_scanned(page)
-            chars = None
-            text = page_text(page)
-            if scanned:
-                if use_ocr:
-                    w = ocr_page_words(page)
-                    chars = ocr_to_chars(w)
-                    text = " ".join(x["text"] for x in w)
-                    if not w:
-                        res["warnings"].append(f"sheet {i}: scanned page but OCR (tesseract) unavailable")
-                else:
-                    res["warnings"].append(f"sheet {i}: scanned page skipped (OCR disabled)")
-            title = title_of(text)
-            draw_type = classify_sheet(text)
-            tb = extract_title_block(text)
-            # Extract structured specifications from GA & Specs sheets
-            if draw_type in ("external_ga", "internal_ga", "general_specs", "feeder_legend", "table_of_contents") or "PANEL DETAILS" in text.upper():
-                try:
-                    specs = extract_sheet_specs(page, i, draw_type, text)
-                    if specs:
-                        res["panel_specs"].extend(specs)
-                except Exception:
-                    res["warnings"].append(f"sheet {i}: specification tables could not be read")
-            # Derive legacy 'kind' from draw_type for backward compatibility
-            if draw_type in ("plc_di", "plc_do", "plc_ai", "plc_ao", "plc_cpu"):
-                kind = "io"
-            elif draw_type in ("table_of_contents", "title_page"):
-                kind = "index"
-            elif is_io_sheet(text) and (chars is None or chars):
-                kind = "io"
-            else:
-                kind = "schematic"
-            if title.upper().startswith(("TABLE OF CONTENTS", "TITLE PAGE")) or "TABLE OF CONTENTS" in text[:200].upper():
-                kind = "index"
-            display_title = (tb.get("drawing_title") or title or text.split("\n")[0][:60]).strip()
-            res["sheets"].append(dict(
-                sheet=i,
-                title=display_title,
-                label=tb.get("sheet_no") or sheet_label(text),
-                kind=kind,
-                draw_type=draw_type,
-                draw_type_label=DRAW_TYPE_LABEL.get(draw_type, "Unknown"),
-                drawing_no=tb.get("drawing_no", ""),
-                revision=tb.get("revision", ""),
-                section_view=tb.get("section_view", ""),
-                scanned=scanned,
-                chars=len(page.chars),
-            ))
-            if i == 1 or not res["meta"]:
-                res["meta"].update(project_meta(text))
-            if kind == "index" or (draw_type in ("title_page", "unknown") and len(page.lines) < 30):
-                if chars is None and draw_type != "table_of_contents":
-                    res["annotations"] += page_annotations(page, i)
-                if kind == "index":
-                    continue
-            if draw_type == "bom" or is_bom_text(text):
-                try:
-                    res["bom"].extend(parse_bom_text(text, i))
-                except Exception:
-                    res["warnings"].append(f"sheet {i}: BOM sheet could not be parsed")
-                continue
-            ch = chars if chars is not None else upright_chars(page)
-            if kind == "io" and chars is None and len(page.lines) >= 30:
-                try:
-                    sy, ne, xr, _c, an = recognize(page, i)
-                    res["symbols"] += sy; res["xrefs"] += xr
-                    res["annotations"] += [dict(a, sheet=i) for a in an]
-                except Exception:
-                    pass
-            if kind == "io":
-                mod, rows = extract_io_sheet(page if chars is None else ch, text, i, ocr=chars is not None) if chars is None else (None, [])
-                if mod:
-                    mod["title"] = title
-                    raw_mods.append((mod, rows))
-                    continue
-            if is_terminal_detail(text):
-                try:
-                    t_, c_, f_ = extract_terminal_detail(page, i, None if chars is None else ch)
-                    res["td_terminals"] += t_; res["td_cables"] += c_; res["td_ferrules"] += f_
-                    if chars is None:              # keep every printed label of the sheet (field descriptions, sizes) as annotations too
-                        res["annotations"] += page_annotations(page, i)
-                except Exception:
-                    res["warnings"].append(f"sheet {i}: terminal-detail parse failed")
-                continue
-            # schematic sheet
-            a = extract_devices(page, i, ch)
-            s = scan_catalog_parts(page, i, ch)
-            anchored_all += a
-            scanned_all += s
-            if chars is None and len(page.lines) >= 30:
-                try:
-                    sy, ne, xr, _c, an = recognize(page, i)
-                    res["symbols"] += sy; res["nets"] += ne; res["xrefs"] += xr
-                    res["annotations"] += [dict(a, sheet=i) for a in an]
-                except Exception as e:  # noqa
-                    res["warnings"].append(f"sheet {i}: symbol recognition failed ({str(e)[:40]})")
-            w, x, t = extract_wires(page, i, ch)
-            res["wires"] += w
-            res["xrefs"] += x
-            res["tags"] += t
-        _assemble_io(res, raw_mods)
-        validate_addresses(res["io"], res["warnings"])
+    return [results[k] for k in sorted(results)]
+
+
+def process_pdf(path, progress=None, use_ocr=True):
+    res = dict(sheets=[], io=[], circuits=[], devices=[], wires=[], xrefs=[], tags=[], modules=[], meta={}, panel_specs=[], bom=[], td_terminals=[],
+               td_cables=[], td_ferrules=[], symbols=[], nets=[], annotations=[], warnings=[])
+    with open_pdf(path) as pdf:
+        n = len(pdf.pages)
+    pages = _run_pages(path, n, progress, use_ocr)
+    anchored_all, scanned_all, raw_mods, legend, sld = [], [], [], {}, {}
+    for r in pages:
+        for k in RESULT_KEYS:
+            res[k] += r[k]
+        anchored_all += r["anchored"]; scanned_all += r["scanned_parts"]; raw_mods += r["raw_mods"]
+        legend.update(r["legend"]); sld.update(r["sld"])
+        if not res["meta"] and r["meta"]:
+            res["meta"] = r["meta"]
+    try:
+        res["circuits"] = merge_circuits(legend, sld)
+    except Exception:
+        res["circuits"] = []
+    _assemble_io(res, raw_mods)
+    validate_addresses(res["io"], res["warnings"])
     res["devices"] = merge_devices(anchored_all, scanned_all)
     res["wires"] = dedupe_wires(res["wires"])
     for d in res["devices"]:
