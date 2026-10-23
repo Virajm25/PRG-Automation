@@ -27,6 +27,10 @@ def J(x, code=200):
     r = jsonify(x); r.status_code = code; return r
 
 
+@app.get("/favicon.ico")
+def favicon():
+    return ("", 204)
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -354,6 +358,7 @@ def learning_info():
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5057)), debug=False, threaded=True)
+
 
 
 

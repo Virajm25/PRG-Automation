@@ -152,8 +152,7 @@ async function docs(){const d=await api(`/api/projects/${P.id}/docs`);$("docs").
 async function delDoc(id){if(!confirm("Remove this drawing and its extracted data?"))return;await api("/api/docs/"+id,{method:"DELETE"});refresh()}
 const drop=$("drop");["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
 drop.addEventListener("drop",ev=>up(ev.dataTransfer.files));$("file").onchange=e=>up(e.target.files);
-async function up(files){const fd=new FormData();[...files].forEach(f=>fd.append("files",f));toast(`Uploading ${files.length} file(s)`);await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});$("file").value="";docs()}
-async function load(){if(!P)return;const note=NOTES[T]||"";$("note").textContent=note; if(T=="insights"){
+async function up(files){const list=[...files];const tooBig=list.filter(f=>f.size>4*1024*1024);if(tooBig.length){toast("Vercel allows uploads up to about 4 MB per request. Use the local Windows app or upload smaller files.",7000);return}const fd=new FormData();list.forEach(f=>fd.append("files",f));toast(`Uploading ${list.length} file(s)`);try{await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});$("file").value="";docs()}catch(e){toast("Upload failed: "+e.message,7000)}}async function load(){if(!P)return;const note=NOTES[T]||"";$("note").textContent=note; if(T=="insights"){
   $("addBtn").style.display="none"; $("flt").style.display="none";
   const [ss,ps]=await Promise.all([api(`/api/projects/${P.id}/sheets`),api(`/api/projects/${P.id}/table/panel_specs`)]);
   window.insightSpecs=ps.rows; window.insightSheets=ss; const first=ss.find(x=>x.draw_type==="external_ga"||x.draw_type==="internal_ga")||ss[0]; $("count").textContent=ss.length+" drawings  "+ps.total+" extracted specifications";
@@ -214,6 +213,7 @@ projects();tabs();
 </script>
 </body>
 </html>
+
 
 
 
