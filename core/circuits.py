@@ -74,6 +74,9 @@ def extract_circuits(pdf):
             # Cable
             m_cable = re.search(r'(\d+(?:\.\d+)?\s*SQ\.?\s*MM)', col_txt, re.I)
             cable = m_cable.group(1).upper() if m_cable else ""
+            m_cores = re.search(r'\b((?:RD|YL|YE|BL|BU|BK|GY)(?:/(?:RD|YL|YE|BL|BU|BK|GY)){1,4})\b', col_txt)
+            if cable and m_cores:
+                cable += f" ({m_cores.group(1)})"     # core colours printed under the cable size on the SLD
 
             # Motor kW
             m_kw = re.search(r'(\d+(?:\.\d+)?\s*k\s*W)', col_txt, re.I)

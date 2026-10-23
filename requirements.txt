@@ -1,10 +1,8 @@
+# Runtime (web + desktop). This is also what Vercel installs, so keep heavy desktop/test-only packages out of it.
 flask>=3.0
 pdfplumber>=0.11
 openpyxl>=3.1
 reportlab>=4.0
 requests>=2.31
-pytesseract>=0.3.10      # optional: OCR for scanned PDFs (also install the Tesseract-OCR Windows binary)
-pywebview>=5.0           # optional: native desktop window instead of the browser
-pandas>=2.0              # only needed to run tests/validate.py
-xlrd>=2.0                # only needed to run tests/validate.py (.xls reference files)
+pytesseract>=0.3.10      # OCR for scanned PDFs (also needs the Tesseract-OCR binary; not available on Vercel)
 pymongo[srv]>=4.8

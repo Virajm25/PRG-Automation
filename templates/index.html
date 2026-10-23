@@ -1,235 +1,490 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MS-PRG   Drawing Data Extractor (MVP)</title>
+<title>PRG Drawing Data Extractor</title>
 <style>
-:root{--bg:#f4f6f9;--panel:#fff;--ink:#1c2733;--mut:#6b7886;--line:#dbe1e8;--brand:#1f4e78;--brand2:#2f6fa8;--ok:#1e8a4c;--warn:#b9770e;--bad:#b63a3a;--hl:#eaf2fb}
-@media (prefers-color-scheme:dark){:root{--bg:#12171d;--panel:#1a222b;--ink:#e6ebf0;--mut:#8b98a6;--line:#2b3744;--brand:#5ea1dd;--brand2:#7db6ea;--hl:#1f2f40;--ok:#4cc17f;--warn:#e0a13a;--bad:#e06b6b}}
+:root{--bg:#f3f5f8;--panel:#fff;--panel2:#f8fafc;--ink:#18222d;--mut:#5d6b79;--line:#dde3ea;--brand:#1f5f99;--brand-ink:#fff;--brand-soft:#e7f0f9;
+ --ok:#1d7a45;--ok-soft:#e5f4ea;--warn:#9a6200;--warn-soft:#fdf2dc;--bad:#b23b3b;--bad-soft:#fbe9e9;--shadow:0 1px 2px #0000000d,0 2px 8px #0000000a}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#11161c;--panel:#19212a;--panel2:#1e2731;--ink:#e5ebf1;--mut:#93a1af;--line:#2c3845;
+ --brand:#5ea4e6;--brand-ink:#0b1622;--brand-soft:#1d3247;--ok:#55c487;--ok-soft:#173326;--warn:#e3a94a;--warn-soft:#3a2c12;--bad:#ee7b7b;--bad-soft:#3b1d1d;--shadow:none}}
+:root[data-theme=dark]{--bg:#11161c;--panel:#19212a;--panel2:#1e2731;--ink:#e5ebf1;--mut:#93a1af;--line:#2c3845;--brand:#5ea4e6;--brand-ink:#0b1622;--brand-soft:#1d3247;
+ --ok:#55c487;--ok-soft:#173326;--warn:#e3a94a;--warn-soft:#3a2c12;--bad:#ee7b7b;--bad-soft:#3b1d1d;--shadow:none}
 *{box-sizing:border-box}
-body{margin:0;font:13px/1.45 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;overflow:hidden}
+html,body{height:100%}
+body{margin:0;font:13px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;overflow:hidden}
 button,input,select{font:inherit;color:inherit}
-aside{width:250px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0}
-aside h1{font-size:14px;margin:0;padding:14px 14px 4px;color:var(--brand)}
-aside .sub{padding:0 14px 10px;color:var(--mut);font-size:11px}
-.plist{flex:1;overflow:auto}
-.pitem{padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
-.pitem:hover{background:var(--hl)}.pitem.on{background:var(--hl);border-left:3px solid var(--brand);padding-left:11px}
-.pitem b{display:block}.pitem span{color:var(--mut);font-size:11px}
-.btn{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
-.btn:hover{border-color:var(--brand2)}
-.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
-body.dark .btn.pri{color:#0b1520}
-@media (prefers-color-scheme:dark){.btn.pri{color:#0b1520}}
-.btn.sm{padding:2px 7px;font-size:12px}
+a{color:var(--brand)}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--brand)}
+.btn:focus-visible,.navi:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--brand-soft)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:default}
+input[type=search],input[type=text],select{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+/* header */
+header.app{height:48px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--brand);cursor:pointer}
+.logo svg{width:22px;height:22px}
+.crumb{color:var(--mut);display:flex;align-items:center;gap:8px;min-width:0}
+.crumb b{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .sp{flex:1}
+/* layout */
+.shell{flex:1;display:flex;min-height:0}
+nav.side{width:232px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:10px 8px;display:none}
+nav.side.on{display:block}
+.navh{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);padding:12px 10px 5px}
+.navi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;color:var(--ink);border:0;background:none;width:100%;text-align:left}
+.navi:hover{background:var(--brand-soft)}
+.navi.on{background:var(--brand-soft);color:var(--brand);font-weight:600}
+.navi .num{margin-left:auto;font-size:11px;color:var(--mut);font-weight:400}
+.navi .rv{font-size:10.5px;background:var(--warn-soft);color:var(--warn);border-radius:9px;padding:0 6px;font-weight:600}
+.navi .ix{width:18px;color:var(--mut);font-size:11px;text-align:right;flex-shrink:0}
 main{flex:1;display:flex;flex-direction:column;min-width:0}
-.top{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.top h2{margin:0;font-size:16px;flex:1;min-width:150px}
-.stats{display:flex;gap:8px;padding:8px 16px;flex-wrap:wrap}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px}
-.stat b{font-size:16px;display:block;line-height:1.1}.stat span{color:var(--mut);font-size:11px}
-.drop{margin:0 16px 8px;border:2px dashed var(--line);border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;background:var(--panel)}
-.drop.over{border-color:var(--brand2);background:var(--hl)}
-.docs{display:flex;gap:6px;flex-wrap:wrap;flex:1}
-.chip{border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:11.5px;display:flex;gap:6px;align-items:center}
-.chip.done{border-color:var(--ok)}.chip.error{border-color:var(--bad)}.chip.processing{border-color:var(--warn)}
-.chip i{font-style:normal;color:var(--mut)}
-.bar{height:3px;background:var(--brand2);border-radius:2px}
-.tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.tab{padding:7px 12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mut)}
-.tab.on{color:var(--brand);border-color:var(--brand);font-weight:600}
-.tools{display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap}
-.tools input[type=search]{padding:5px 9px;border:1px solid var(--line);border-radius:6px;min-width:220px;background:var(--panel)}
-.tools select{padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
-.work{flex:1;display:flex;min-height:0;padding:0 16px 12px;gap:12px}
+.view{flex:1;overflow:auto;padding:18px 22px}
+.view.tablev{display:flex;flex-direction:column;overflow:hidden;padding:14px 18px 10px}
+h1.t{font-size:19px;margin:0 0 3px}
+.lead{color:var(--mut);margin:0 0 14px;max-width:900px}
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.card.click{cursor:pointer}.card.click:hover{border-color:var(--brand)}
+.card h3{margin:0 0 4px;font-size:14px}
+.card .meta{color:var(--mut);font-size:12px}
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi .v{font-size:24px;font-weight:700;line-height:1.1}
+.kpi .l{color:var(--mut);font-size:12px}
+.kpi .r{font-size:11.5px;margin-top:4px}
+.r.ok{color:var(--ok)}.r.warn{color:var(--warn)}
+.sec{margin:22px 0 10px;font-size:14px;font-weight:600}
+.row2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+@media (max-width:1100px){.row2{grid-template-columns:1fr}}
+/* doc list */
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;background:var(--panel);transition:.15s}
+.drop.over{border-color:var(--brand);background:var(--brand-soft)}
+.drop b{font-size:14px}
+.doc{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+.doc:first-child{border-top:0}
+.doc .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc .msg{grid-column:1/-1;color:var(--mut);font-size:12px}
+.prog{height:5px;border-radius:3px;background:var(--line);overflow:hidden;grid-column:1/-1}
+.prog i{display:block;height:100%;background:var(--brand);transition:width .3s}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.pill.done{background:var(--ok-soft);color:var(--ok)}.pill.error{background:var(--bad-soft);color:var(--bad)}
+.pill.processing,.pill.queued,.pill.ai{background:var(--warn-soft);color:var(--warn)}
+.pill.src{background:var(--panel2);color:var(--mut);border-color:var(--line);font-weight:500}
+.pill.src.rev{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.bars div{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.bars span{width:190px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bars i{height:8px;background:var(--brand);border-radius:4px;display:block}
+/* toolbar + table */
+.subtabs{display:flex;gap:4px;margin:8px 0 10px;flex-wrap:wrap}
+.subtabs button{border:1px solid var(--line);background:var(--panel);padding:5px 12px;border-radius:16px;cursor:pointer}
+.subtabs button.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.tools input[type=search]{width:260px}
+.tools .cnt{color:var(--mut);margin-left:auto}
+.toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);user-select:none}
+.toggle input{margin:0}
+.toggle.on{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+.hint{color:var(--mut);font-size:12px;margin:-2px 0 8px}
+.work{flex:1;display:flex;gap:0;min-height:0}
 .tbl{flex:1;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
-table{border-collapse:collapse;width:100%}
-th{position:sticky;top:0;background:var(--brand);color:#fff;text-align:left;padding:6px 8px;font-weight:600;white-space:nowrap;z-index:1}
-@media (prefers-color-scheme:dark){th{color:#0b1520}}
-td{border-top:1px solid var(--line);padding:6px 8px;vertical-align:top;max-width:340px;white-space:normal;word-break:break-word}.insights{display:flex;min-height:100%;gap:14px;padding:14px}.insheet{width:250px;border-right:1px solid var(--line);padding-right:12px}.insheet h3,.inspec h3{margin:0 0 10px;font-size:14px}.sheetlist{display:flex;flex-direction:column;gap:6px}.sheetpick{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:8px;cursor:pointer}.sheetpick.on{border-color:var(--brand2);background:var(--hl)}.sheetpick b,.sheetpick span,.sheetpick small{display:block}.sheetpick span{color:var(--brand2);font-size:11px}.sheetpick small{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inspec{flex:1;min-width:0}.insgrid{display:grid;grid-template-columns:minmax(240px,38%) 1fr;gap:14px}.inspreview{background:#111;border-radius:7px;overflow:auto;max-height:650px}.inspreview img{width:100%;display:block}.inspec h4{margin:0 0 8px;font-size:12px}
-td[contenteditable]:focus{outline:2px solid var(--brand2);background:var(--hl)}
-tr:hover td{background:var(--hl)}
-tr.sel td{background:var(--hl)}
-tr.low td:first-child{box-shadow:inset 3px 0 var(--warn)}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th{position:sticky;top:0;background:var(--panel2);color:var(--ink);text-align:left;padding:7px 9px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--line);z-index:1;cursor:pointer;font-size:12px}
+th:hover{color:var(--brand)}
+th .ar{color:var(--brand);font-size:10px}
+td{border-bottom:1px solid var(--line);padding:6px 9px;vertical-align:top;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table.wrap td{white-space:normal;word-break:break-word;max-width:420px}
+td[contenteditable]:focus{white-space:normal;overflow:visible;word-break:break-word}
+tbody tr:hover td{background:var(--brand-soft)}
+tr.review td:first-child{box-shadow:inset 3px 0 var(--warn)}
 tr.spare td{color:var(--mut);font-style:italic}
-td.sheet{cursor:pointer;color:var(--brand2);text-decoration:underline}
-.prev{width:46%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:none;flex-direction:column}
+td[contenteditable]{cursor:text}
+td[contenteditable]:focus{outline:2px solid var(--brand);outline-offset:-2px;background:var(--panel)}
+td.saved{animation:flash 1s}
+@keyframes flash{0%{background:var(--ok-soft)}100%{background:transparent}}
+td.lnk{color:var(--brand);cursor:pointer;font-weight:600;white-space:nowrap}
+td.lnk:hover{text-decoration:underline}
+td.act{width:1%;white-space:nowrap}
+td.act .btn{opacity:0}tr:hover td.act .btn{opacity:1}
+.empty{padding:60px 20px;text-align:center;color:var(--mut)}
+.empty b{display:block;color:var(--ink);font-size:14px;margin-bottom:6px}
+.more{padding:10px;text-align:center}
+/* preview */
+.split{width:6px;cursor:col-resize;flex-shrink:0;display:none}
+.split.on{display:block}
+.prev{width:46%;min-width:320px;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:none;flex-direction:column}
 .prev.on{display:flex}
-.prev header{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
-.prev header b{flex:1}
-.prev .img{flex:1;overflow:auto;padding:6px}
-.prev img{width:100%;display:block;transition:width .1s}
-.empty{padding:50px;text-align:center;color:var(--mut)}
-.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:9}
-.modal.on{display:flex}.project-card{width:520px}.modal-icon{width:34px;height:34px;border-radius:9px;background:var(--hl);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px}.project-card label{margin-top:18px}.project-card input{font-size:14px;padding:10px 12px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
-.card{background:var(--panel);border-radius:10px;padding:18px;width:460px;max-width:92vw;border:1px solid var(--line)}
-.card label{display:block;margin:10px 0 3px;color:var(--mut);font-size:12px}
-.card input,.card select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
-.toast{position:fixed;bottom:16px;right:16px;background:var(--brand);color:#fff;padding:9px 14px;border-radius:8px;display:none;z-index:20;max-width:420px}
-@media (prefers-color-scheme:dark){.toast{color:#0b1520}}
-.note{padding:6px 16px;color:var(--mut);font-size:11.5px}
-.menu{position:relative}.menu .dd{display:none;position:absolute;right:0;top:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:5;min-width:170px;margin-top:3px;overflow:hidden}
-.menu:hover .dd,.menu:focus-within .dd{display:block}
-.dd a{display:block;padding:7px 12px;color:var(--ink);text-decoration:none;cursor:pointer}.dd a:hover{background:var(--hl)}
-body{background:#fff!important;color:#111!important}aside,main,.top,.panel,.tbl,.prev,.card,.drop,.stat,.chip,.sheetpick,.tools input,.tools select{background:#fff!important;color:#111!important}aside{border-color:#d9dee5!important}.top,.tbl,.prev,.drop,.stat,.card,.sheetpick{border-color:#d9dee5!important}.muted-cell,.note,.sub,.sheetpick small{color:#5f6b76!important}th{background:#e9f2fb!important;color:#111!important;border-bottom:1px solid #b8cbe0}td{color:#111!important;border-color:#e3e7eb!important}tr:hover td,.sheetpick:hover{background:#f5f9fd!important}.tab{color:#52606d!important}.tab.on{color:#155fa0!important}.btn{background:#fff!important;color:#111!important;border-color:#c8d0d9!important}.btn.pri{background:#2f80c9!important;color:#fff!important;border-color:#2f80c9!important}.tools input,.tools select,.project-card input{background:#fff!important;color:#111!important;border-color:#c8d0d9!important}.modal{background:rgba(15,23,42,.35)!important}.modal-icon{background:#eaf3fb!important;color:#155fa0!important}:root{--bg:#ffffff;--panel:#ffffff;--ink:#111827;--mut:#5f6b76;--line:#d9dee5;--brand:#2f80c9;--brand2:#4b9bdd;--ok:#21864b;--warn:#a96b00;--bad:#b43b3b;--hl:#eaf3fb}.pitem.on{background:#eaf3fb!important;border-left-color:#2f80c9!important}.pitem{color:#111827!important}.pitem span{color:#5f6b76!important}</style>
+.prev header{padding:7px 9px;border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.prev header b{flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prev .img{flex:1;overflow:auto;background:#fff}
+.prev img{width:100%;display:block}
+.prev.full{position:fixed;inset:48px 0 26px 0;width:auto;z-index:8;border-radius:0}
+/* modal, toast, status */
+.modal{position:fixed;inset:0;background:#0f172a66;display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.on{display:flex}
+.dlg{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:520px;max-width:100%;max-height:90vh;overflow:auto;box-shadow:0 10px 40px #0003}
+.dlg h3{margin:0 0 4px;font-size:16px}
+.dlg label.f{display:block;margin:12px 0 4px;color:var(--mut);font-size:12px}
+.dlg input[type=text]{width:100%}
+.dlg .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.chk{display:flex;align-items:center;gap:8px;padding:4px 2px}
+.chk span{color:var(--mut);margin-left:auto;font-size:12px}
+.fmt{display:flex;gap:8px;flex-wrap:wrap}
+.fmt label{border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.fmt label:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.cols2{columns:2;column-gap:18px}
+@media (max-width:640px){.cols2{columns:1}}
+.menu{position:relative;display:inline-block}.menu .dd{display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:8px;z-index:6;min-width:150px;box-shadow:0 6px 20px #0002;overflow:hidden}
+.menu.open .dd{display:block}.dd button{display:block;width:100%;text-align:left;padding:8px 12px;border:0;background:none;cursor:pointer}.dd button:hover{background:var(--brand-soft)}
+.toast{position:fixed;bottom:36px;right:16px;background:var(--ink);color:var(--panel);padding:10px 14px;border-radius:8px;display:none;z-index:30;max-width:440px;box-shadow:0 6px 20px #0003}
+footer.status{height:26px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--panel);border-top:1px solid var(--line);color:var(--mut);font-size:11.5px}
+footer .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:var(--mut)}
+footer .dot.ok{background:var(--ok)}footer .dot.warn{background:var(--warn)}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:var(--panel2)}
+</style>
 </head>
 <body>
-<aside>
-  <h1>Drawing Data Extractor</h1>
-  <div class="sub">MS-PRG Automation   MVP</div>
-  <div style="padding:0 14px 10px;display:flex;gap:6px"><button class="btn pri" onclick="newProject()">+ New project</button><button class="btn" onclick="openSettings()"> AI</button></div>
-  <div class="plist" id="plist"></div>
-</aside>
-<main>
-  <div class="top">
-    <h2 id="ptitle">Select or create a project</h2>
-    <button class="btn" id="insBtn" onclick="openInsights()" style="display:none">Drawing Insights</button><button class="btn" id="gaBtn" onclick="extractGA()" style="display:none" title="Extract panel details, dimensions, and specifications from GA drawings"> Extract GA Specs</button>
-    <button class="btn" id="aiBtn" onclick="aiEnrich()" style="display:none" title="Groq: field devices, tag suggestions, device classes"> AI enrich</button>
-    <div class="menu" id="expMenu" style="display:none"><button class="btn pri">Export </button>
-      <div class="dd"><a onclick="exp('xlsx')">Excel (.xlsx)  all tables</a><a onclick="exp('pdf')">PDF</a><a onclick="exp('csv')">CSV (zip of all)</a><a onclick="expCsvCur()">CSV  current table</a><a onclick="exp('xml')">XML</a></div></div>
+<header class="app">
+  <div class="logo" onclick="goHome()" title="All projects">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h4M7 12h10M7 16h6M15 6v4"/></svg>
+    <span>PRG Drawing Data Extractor</span>
   </div>
-  <div id="body" style="display:none;flex:1;flex-direction:column;min-height:0">
-    <div class="stats" id="stats"></div>
-    <div class="drop" id="drop"><div><b>Drop drawing PDFs here</b><br><span style="color:var(--mut)">batch upload   vector &amp; scanned (OCR)</span></div>
-      <input type="file" id="file" multiple accept=".pdf" style="display:none"><button class="btn" onclick="file.click()">Browse</button><div class="docs" id="docs"></div></div>
-    <div class="tabs" id="tabs"></div>
-    <div class="tools" id="tools">
-      <input type="search" id="q" placeholder="Search / filter" oninput="debounce()">
-      <select id="flt" onchange="load()"></select>
-      <button class="btn" id="addBtn" onclick="addRow()">+ Row</button>
-      <span id="count" style="color:var(--mut)"></span>
-    </div>
-    <div class="note" id="note"></div>
-    <div class="work"><div class="tbl" id="tbl"></div>
-      <div class="prev" id="prev"><header><b id="pt">Preview</b><button class="btn sm" onclick="zoom(-1)"></button><button class="btn sm" onclick="zoom(1)">+</button>
-        <button class="btn sm" id="reread" onclick="reread()" title="Re-read this sheet with Groq vision"> AI re-read</button><button class="btn sm" onclick="prev.classList.remove('on')"></button></header>
-        <div class="img"><img id="pimg"></div></div></div>
-  </div>
-</main>
-<div class="modal" id="projectModal" onclick="if(event.target===this)closeProjectModal()"><div class="card project-card"><div class="modal-icon">+</div><h3 style="margin:0 0 4px">Create new project</h3><div style="color:var(--mut);font-size:12px">Start a workspace for a drawing package and its extracted engineering data.</div><label for="projectName">Project name</label><input id="projectName" placeholder="e.g. PRG-2526-616 Shah Eye Care ETP" onkeydown="if(event.key==='Enter')createProject();if(event.key==='Escape')closeProjectModal()"><div class="modal-actions"><button class="btn" onclick="closeProjectModal()">Cancel</button><button class="btn pri" onclick="createProject()">Create project</button></div></div></div><div class="modal" id="modal"><div class="card">
-  <h3 style="margin:0 0 4px">Groq AI settings</h3><div style="color:var(--mut);font-size:12px">Used only when you press an AI button. Key is stored in the local database.</div>
-  <label>API key</label><input id="gk" type="password" placeholder="gsk_"><div id="gkh" style="font-size:11px;color:var(--mut)"></div>
-  <label>Text model</label><input id="gt" list="mlist"><label>Vision model (for AI re-read)</label><input id="gv" list="mlist"><datalist id="mlist"></datalist>
-  <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" onclick="listModels()">List available models</button><span style="flex:1"></span>
-  <button class="btn" onclick="modal.classList.remove('on')">Close</button><button class="btn pri" onclick="saveSettings()">Save</button></div>
-</div></div>
-<div class="toast" id="toast"></div>
+  <div class="crumb" id="crumb"></div>
+  <div class="sp"></div>
+  <span id="hdrActs" style="display:none;gap:8px;align-items:center">
+    <button class="btn" onclick="go('drawings');file.click()" title="Upload one or more drawing PDFs">Upload PDFs</button>
+    <button class="btn" id="aiBtn" onclick="aiRun()" style="display:none" title="Run the AI pass again on all drawings">Re-run AI</button>
+    <button class="btn pri" onclick="openExport()" title="Export (Ctrl+E)">Export</button>
+  </span>
+</header>
+<div class="shell">
+  <nav class="side" id="side"></nav>
+  <main id="main"></main>
+</div>
+<footer class="status">
+  <span id="stAi"><span class="dot"></span>AI</span><span id="stOcr"><span class="dot"></span>OCR</span><span id="stData"></span>
+  <span style="margin-left:auto"><kbd>/</kbd> search · <kbd>Esc</kbd> close · <kbd>Ctrl</kbd>+<kbd>E</kbd> export · <kbd>←</kbd><kbd>→</kbd> pages in preview</span>
+</footer>
+<input type="file" id="file" multiple accept=".pdf,application/pdf" style="display:none">
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="dlg" id="dlg" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
 const $=id=>document.getElementById(id);
-const TABS=[["insights","Drawing Insights"],["io","I/O List"],["circuits","Feeders / Circuits"],["panel_specs","Panel Specs"],["summary","I/O Summary"],["bom","BOM"],["devices","Device List"],["terminals","Terminals"],["wires","Ferrules / Wires"],["cables","Cables"],["xref","Cross Reference"],["sheets","Sheets"]];
-const NOTES={insights:"Select a drawing to view preview and extracted GA specifications.",wires:"Beta: wire numbers and cross-reference targets are read from the drawing. From/To terminals need net tracing (roadmap phase 2).",
- circuits:"MCC Feeder & Power Circuits extracted from Single Line Diagrams and Feeder Legend details.",
- panel_specs:"Panel dimensions (HWD, Plinth), sheet metal thickness, IP protection, paint colours, cable entry, front equipment, and internal GA layout.",
- cables:"Cable data is not printed on these drawings  enter manually or import (roadmap: cable schedule import / generation rules).",
- terminals:"Terminal strips of PLC I/O sheets. Power/control terminal blocks need symbol-level connectivity (roadmap phase 2).",
- io:"Yellow bar = low-confidence row   italic = spare. Click any cell to edit; edits are learned. Click a sheet number to preview.",
- bom:"Aggregated from part numbers printed on the drawings. Items not printed on the drawings (e.g. lamps, terminals, wire) will not appear  add via Device List.",
- devices:"Includes drawing parts, PLC modules and field devices/instruments derived from the I/O list.",
- sheets:"Every page is auto-classified by drawing type. Click a sheet number to preview. Use the filter to narrow by type."};
-const TYPE_COLORS={"Title Page":"#7c3aed","Table of Contents":"#6b7280","General Specifications":"#0891b2","External General Arrangement":"#0d9488","Internal General Arrangement":"#059669","Single Line Diagram":"#d97706","Feeder Legend Details":"#b45309","Power & Control Circuit":"#dc2626","PLC CPU Wiring":"#1d4ed8","PLC DI Wiring":"#2563eb","PLC DO Wiring":"#7c3aed","PLC AI Wiring":"#0891b2","PLC AO Wiring":"#0d9488","PLC Wiring Diagram":"#3b82f6","Terminal Diagram":"#9333ea","Cable Schedule":"#db2777","Bill of Materials":"#16a34a","Unknown":"#9ca3af"};
-let P=null,T="io",cur={doc:null,sheet:null},zoomW=100,timer;
-const HEADS={rack:"PLC Rack",slot:"Slot",module_name:"Module Name",module_model:"Module Model",channel:"Channel",feeder_no:"Feeder No.",description:"Description",rating_kw:"Motor Rating",starter_type:"Starter Type",mcb:"MCB / MCCB",contactor:"Contactor",olr:"Overload Relay",cable_size:"Cable Size",controls:"Control Devices",sheet:"Sheet",module_type:"Module Type",plc_address:"PLC Address",tag:"Tag Name",signal_type:"Signal Type",field_device:"Field Device",cable_no:"Cable Number",terminal:"Terminal Number",remarks:"Remarks",dev_class:"Device Class",part_no:"Part Number",make:"Manufacturer",desc:"Description",strip:"Terminal Strip",terminal_no:"Terminal No.",terminal_type:"Terminal Type",incoming_wire:"Incoming Wire",outgoing_wire:"Outgoing Wire",core_no:"Core No.",spare:"Spare"};
-function head(c){return HEADS[c]||c.replaceAll("_"," ").replace(/\\b\\w/g,x=>x.toUpperCase())}
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function api(u,o){let r;try{r=await fetch(u,o)}catch(e){throw new Error("Cannot reach the application server - is it still running?")}
+ const j=await r.json().catch(()=>({}));
+ if(r.status==404&&!j.error&&u.startsWith("/api/"))throw new Error("The application server is older than this page. Close the app (or stop python app.py) and start it again.");
+ if(!r.ok)throw new Error(j.error||r.statusText);return j}
+window.addEventListener("unhandledrejection",e=>{e.preventDefault();toast((e.reason&&e.reason.message)||String(e.reason),8000)});
+const JSONP=b=>({method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
 function toast(m,ms=3500){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",ms)}
-async function api(u,o){const r=await fetch(u,o);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.statusText);return j}
-function debounce(){clearTimeout(timer);timer=setTimeout(load,250)}
-async function projects(){const ps=await api("/api/projects");$("plist").innerHTML=ps.map(p=>`<div class="pitem ${P&&P.id==p.id?"on":""}" onclick='pick(${JSON.stringify(p)})'><b>${esc(p.name)}</b><span>${p.docs} drawing(s)   ${p.io} I/O</span></div>`).join("")||'<div class="empty">No projects yet</div>'}
-function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function openProjectModal(){$("projectModal").classList.add("on");$("projectName").value="";setTimeout(()=>$("projectName").focus(),50)}
-function closeProjectModal(){$("projectModal").classList.remove("on")}
-async function newProject(){openProjectModal()}
-async function createProject(){const n=$("projectName").value.trim();if(!n){$("projectName").focus();return}try{const r=await api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n})});closeProjectModal();await projects();pick({id:r.id,name:n})}catch(e){toast(e.message)}}
-function pick(p){P=p;$("ptitle").textContent=p.name;$("body").style.display="flex";$("gaBtn").style.display="";$("insBtn").style.display="";$("aiBtn").style.display="";$("expMenu").style.display="";prev.classList.remove("on");projects();tabs();refresh()}
-async function extractGA(){if(!P)return;toast("Extracting GA panel specs and dimensions");try{const r=await api(`/api/projects/${P.id}/extract-ga`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({use_ai:true})});toast(`Extracted ${r.extracted_specs} panel specifications!`);T="panel_specs";tabs();load();stats();}catch(e){toast(e.message)}}
-function tabs(){$("tabs").innerHTML=TABS.map(([k,n])=>`<div class="tab ${k==T?"on":""}" onclick="T='${k}';tabs();load()">${n}</div>`).join("")}
-async function refresh(){await docs();await stats();await load()}
-async function stats(){const s=await api(`/api/projects/${P.id}/stats`);$("stats").innerHTML=[["I/O points",s.io],["Feeders / Circuits",s.circuits||0],["Panel Specs",s.specs||0],["Spare I/O",s.spare],["Needs review",s.low],["Devices",s.devices],["BOM parts",s.parts],["Wire nos.",s.wires],["Corrections learned",s.corrections]].map(([a,b])=>`<div class="stat"><b>${b}</b><span>${a}</span></div>`).join("")}
-let poll;
-async function docs(){const d=await api(`/api/projects/${P.id}/docs`);$("docs").innerHTML=d.map(x=>`<div class="chip ${x.status}" title="${esc(x.message)}">${esc(x.filename.slice(0,38))} <i>${x.status}${x.status=="processing"?" "+x.progress+"%":""}</i><button class="btn sm" onclick="delDoc(${x.id})"></button></div>`).join("");
- clearTimeout(poll);if(d.some(x=>x.status=="processing"||x.status=="queued"))poll=setTimeout(async()=>{await docs();await stats();await load()},1500)}
-async function delDoc(id){if(!confirm("Remove this drawing and its extracted data?"))return;await api("/api/docs/"+id,{method:"DELETE"});refresh()}
-const drop=$("drop");["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
-drop.addEventListener("drop",ev=>up(ev.dataTransfer.files));$("file").onchange=e=>up(e.target.files);
-async function up(files){const list=[...files];const tooBig=list.filter(f=>f.size>4*1024*1024);if(tooBig.length){toast("Vercel allows uploads up to about 4 MB per request. Use the local Windows app or upload smaller files.",7000);return}const fd=new FormData();list.forEach(f=>fd.append("files",f));toast(`Uploading ${list.length} file(s)`);try{await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});$("file").value="";docs()}catch(e){toast("Upload failed: "+e.message,7000)}}async function load(){if(!P)return;const note=NOTES[T]||"";$("note").textContent=note; if(T=="insights"){
-  $("addBtn").style.display="none"; $("flt").style.display="none";
-  const [ss,ps]=await Promise.all([api(`/api/projects/${P.id}/sheets`),api(`/api/projects/${P.id}/table/panel_specs`)]);
-  window.insightSpecs=ps.rows; window.insightSheets=ss; const first=ss.find(x=>x.draw_type==="external_ga"||x.draw_type==="internal_ga")||ss[0]; $("count").textContent=ss.length+" drawings  "+ps.total+" extracted specifications";
-  $("tbl").innerHTML=`<div class="insights"><div class="insheet"><h3>Drawing Register</h3><div class="sheetlist">${ss.map((r,i)=>`<button class="sheetpick ${i==0?"on":""}" onclick="insightSheet(${r.doc_id},${r.sheet},this)"><b>Sheet ${esc(r.sheet)}</b><span>${esc(r.draw_type_label||r.kind||"Unknown")}</span><small>${esc(r.title||r.filename||"")}</small></button>`).join("")}</div></div><div class="inspec"><h3 id="insTitle">${first?esc(first.title||"Drawing preview"):"No drawings uploaded"}</h3><div class="insgrid"><div class="inspreview">${first?`<img src="/api/preview/${first.doc_id}/${first.sheet}.png">`:""}</div><div><h4>Extracted panel / GA specifications</h4><table><thead><tr><th>Section</th><th>Engineering parameter</th><th>Extracted value</th><th>Sheet</th></tr></thead><tbody id="insSpecBody">${ps.rows.filter(r=>!first||String(r.sheet)==String(first.sheet)).map(r=>`<tr><td>${esc(r.category||"")}</td><td>${esc(r.property_name||"")}</td><td>${esc(r.property_value||"")}</td><td>${esc(r.sheet||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No GA specifications yet. Click Extract GA Specs.</td></tr>`}</tbody></table></div></div></div></div>`;
-  return;
- }
- if(T=="sheets"){
-  const s=await api(`/api/projects/${P.id}/sheets`);
-  const flt=$("flt"),fv=flt.value;
-  const types=[...new Set(s.map(r=>r.draw_type_label||r.kind||"Unknown"))].sort();
-  flt.style.display="";flt.innerHTML='<option value="">All types</option>'+types.map(t=>'<option '+(t===fv?"selected":"")+'>'+esc(t)+'</option>').join("");
-  $("addBtn").style.display="none";
-  const q2=($("q").value||"").toLowerCase();
-  const filtered=s.filter(r=>(!fv||(r.draw_type_label||r.kind)===fv)&&(!q2||[r.title,r.draw_type_label,r.drawing_no,r.revision,r.filename].join(" ").toLowerCase().includes(q2)));
-  $("count").textContent=filtered.length+" / "+s.length+" sheets";
-  const TC={"Title Page":"#7c3aed","Table of Contents":"#6b7280","General Specifications":"#0891b2","External General Arrangement":"#0d9488","Internal General Arrangement":"#059669","Single Line Diagram":"#d97706","Feeder Legend Details":"#b45309","Power & Control Circuit":"#dc2626","PLC CPU Wiring":"#1d4ed8","PLC DI Wiring":"#2563eb","PLC DO Wiring":"#7c3aed","PLC AI Wiring":"#0891b2","PLC AO Wiring":"#0d9488","PLC Wiring Diagram":"#3b82f6","Terminal Diagram":"#9333ea","Cable Schedule":"#db2777","Bill of Materials":"#16a34a","Unknown":"#9ca3af"};
-  $("tbl").innerHTML="<table><thead><tr><th>Sheet</th><th>Page</th><th>Drawing Title</th><th>Drawing Type</th><th>Drawing No.</th><th>Rev</th><th>Scanned</th><th>File</th></tr></thead><tbody>"+
-   filtered.map(r=>{
-    const lbl=r.draw_type_label||r.kind||"Unknown";
-    const col=TC[lbl]||TC["Unknown"];
-    const badge="<span style='display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:"+col+"22;color:"+col+";border:1px solid "+col+"55;white-space:nowrap'>"+esc(lbl)+"</span>";
-    const ocr=r.scanned?"<span style='color:var(--warn)'>&#9889; OCR</span>":"<span style='color:var(--ok)'>&#10003; Vector</span>";
-    return "<tr><td class='sheet' onclick='showSheet("+r.doc_id+","+r.sheet+")' style='cursor:pointer;color:var(--brand2);font-weight:600'>"+r.sheet+"</td><td>"+esc(r.label||"")+"</td><td style='max-width:280px;white-space:normal'>"+esc(r.title||"")+"</td><td>"+badge+"</td><td style='font-size:11px;color:var(--mut)'>"+esc(r.drawing_no||"")+"</td><td style='font-size:11px'>"+esc(r.revision||"")+"</td><td style='font-size:11px'>"+ocr+"</td><td style='color:var(--mut);font-size:11px'>"+esc((r.filename||"").slice(0,42))+"</td></tr>";
-   }).join("")+"</tbody></table>";
-  return;}
- const j=await api(`/api/projects/${P.id}/table/${T}?q=${encodeURIComponent($("q").value)}&filter=${encodeURIComponent($("flt").value)}`);
- $("addBtn").style.display=j.editable?"":"none";const f=$("flt");const v=f.value;
- if(j.filter_options.length){f.style.display="";f.innerHTML=`<option value="">All ${head(j.filter_label)}</option>`+j.filter_options.map(o=>`<option ${o==v?"selected":""}>${esc(o)}</option>`).join("")}else f.style.display="none";
- $("count").textContent=j.total+" rows";
- if(!j.rows.length){$("tbl").innerHTML='<div class="empty">No data yet  upload a drawing PDF'+(T=="cables"?" or add rows manually":"")+".</div>";return}
- if(j.editable)$("tbl").innerHTML=editHTML(j);else $("tbl").innerHTML=tableHTML(j.cols,j.rows)}
-function tableHTML(cols,rows,_a,_b,meta){return `<table><thead><tr>${cols.map(c=>`<th>${esc(head(c))}</th>`).join("")}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${r.map((v,k)=>{const isSheet=/sheet/i.test(cols[k])&&String(v).match(/^\d+$/);return `<td class="${isSheet?"sheet":""}" ${isSheet?`onclick="showSheet(${meta?meta[i].doc_id:"null"},${v})"`:""}>${esc(v)}</td>`}).join("")}</tr>`).join("")}</tbody></table>`}
-function editHTML(j){const cols=j.cols;return `<table><thead><tr>${cols.map(c=>`<th>${esc(head(c))}</th>`).join("")}<th></th></tr></thead><tbody>${j.rows.map(r=>`<tr data-id="${r.id}" class="${parseFloat(r.conf)<0.7?"low":""} ${r.spare=="1"?"spare":""}">${cols.map(c=>c=="sheet"?`<td class="sheet" onclick="showSheet(${r.doc_id},${r.sheet||0})">${esc(r[c])}</td>`:`<td contenteditable="plaintext-only" data-f="${c}" onblur="save(this)" onkeydown="if(event.key=='Enter'){event.preventDefault();this.blur()}">${esc(r[c])}</td>`).join("")}<td><button class="btn sm" onclick="delRow(${r.id})"></button></td></tr>`).join("")}</tbody></table>`}
-async function save(td){const id=td.parentNode.dataset.id;const key=T;try{await api(`/api/row/${key}/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({field:td.dataset.f,value:td.textContent})});td.style.background="";stats()}catch(e){toast(e.message)}}
-async function delRow(id){await api(`/api/row/${T}/${id}`,{method:"DELETE"});load();stats()}
-async function addRow(){await api(`/api/row/${T}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:P.id,values:{}})});load()}
-function openInsights(){T="insights";tabs();load();}
-function insightSheet(doc,sheet,el){
- document.querySelectorAll(".sheetpick").forEach(x=>x.classList.remove("on"));
- if(el)el.classList.add("on");
- const im=document.querySelector(".inspreview img");
- if(im)im.src=`/api/preview/${doc}/${sheet}.png`;
- const sh=(window.insightSheets||[]).find(x=>String(x.sheet)==String(sheet));
- const title=document.getElementById("insTitle");
- if(title)title.textContent=sh?(sh.title||("Sheet "+sheet)):"Sheet "+sheet;
- const body=document.getElementById("insSpecBody");
- if(body){const rows=(window.insightSpecs||[]).filter(r=>String(r.sheet)==String(sheet));body.innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(r.category||"")}</td><td>${esc(r.property_name||"")}</td><td>${esc(r.property_value||"")}</td><td>${esc(r.sheet||"")}</td></tr>`).join(""):"<tr><td colspan='4' class='empty'>No specifications extracted for this sheet.</td></tr>";}
-}function showSheet(doc,sheet){if(!doc){toast("Open this sheet from a row that belongs to a drawing");return}cur={doc,sheet};$("pt").textContent=`Sheet ${sheet}`;$("pimg").src=`/api/preview/${doc}/${sheet}.png`;prev.classList.add("on")}
-function zoom(d){zoomW=Math.max(60,Math.min(300,zoomW+d*30));$("pimg").style.width=zoomW+"%"}
-async function reread(){const mt=prompt("Module type on this sheet (DI / DO / AI / AO / RTD / TC)","DI");if(!mt)return;toast("Asking Groq vision this can take ~10 s");try{const r=await api(`/api/docs/${cur.doc}/sheet/${cur.sheet}/reread`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({module_type:mt.toUpperCase()})});toast(`AI read ${r.channels} channels  review the flagged rows`);load();stats()}catch(e){toast(e.message,6000)}}
-async function aiEnrich(){toast("Groq is enriching the I/O list");try{const r=await api(`/api/projects/${P.id}/ai/enrich`,{method:"POST"});toast(`AI: ${r.io_updates} I/O fields filled, ${r.devices_classified} devices classified`);load()}catch(e){toast(e.message,6000)}}
-function exp(f){location.href=`/api/export/${P.id}/${f}`}
-function expCsvCur(){const n={io:"I-O List",circuits:"Feeders - Circuits",summary:"I-O Summary",bom:"BOM",devices:"Device List",terminals:"Terminal Schedule",wires:"Ferrule List",cables:"Cable Schedule",xref:"Cross Reference"}[T];if(!n){toast("Pick a data tab first");return}location.href=`/api/export/${P.id}/csv?table=${encodeURIComponent(n)}`}
-async function openSettings(){const s=await api("/api/settings");$("gt").value=s.text_model;$("gv").value=s.vision_model;$("gkh").textContent=s.groq_key_set?"Key saved ("+s.groq_key_hint+"). Leave blank to keep.":"No key saved yet.";modal.classList.add("on")}
-async function saveSettings(){await api("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({groq_api_key:$("gk").value,text_model:$("gt").value,vision_model:$("gv").value})});$("gk").value="";modal.classList.remove("on");toast("Saved")}
-async function listModels(){try{await saveSettings();const m=await api("/api/llm/models");$("mlist").innerHTML=m.map(x=>`<option>${x}</option>`).join("");toast(m.length+" models available  pick from the fields");modal.classList.add("on")}catch(e){toast(e.message,6000)}}
-projects();tabs();
+
+/* -------- deliverables, following the client's scope of work -------- */
+const NAV=[
+ {id:"overview",label:"Overview",grp:"Project"},
+ {id:"drawings",label:"Drawings & sheets",grp:"Project"},
+ {id:"io",label:"I/O List",grp:"Deliverables",ix:2,tabs:[["io","I/O List"],["summary","I/O Summary"]]},
+ {id:"wires",label:"Ferrule List",grp:"Deliverables",ix:3,tabs:[["wires","Ferrule List"]]},
+ {id:"bom",label:"Bill of Material",grp:"Deliverables",ix:4,tabs:[["bom","BOM (totals)"],["bom_lines","BOM lines (editable)"]]},
+ {id:"terminals",label:"Terminal Schedule",grp:"Deliverables",ix:5,tabs:[["terminals","Terminal Schedule"],["blocks","Terminal Blocks"]]},
+ {id:"cables",label:"Cable Schedule",grp:"Deliverables",ix:6,tabs:[["cables","Cable Schedule"]]},
+ {id:"devices",label:"Devices & Instruments",grp:"Deliverables",ix:7,tabs:[["devices","Device List"],["devsummary","Summary by type"],["symbols","Symbols & pins"]]},
+ {id:"xref",label:"Cross Reference",grp:"Deliverables",ix:8,tabs:[["xref","Device"],["contacts","Contacts"],["coils","Coil / Contact"],["signals","Signal links"],["sheetrefs","Sheet references"]]},
+ {id:"panel",label:"Panel, GA & Feeders",grp:"More data",tabs:[["panel_specs","Panel specifications"],["circuits","Feeders / Circuits"],["annotations","Sheet annotations"]]},
+ {id:"learning",label:"Learned corrections",grp:"More data"}];
+const DS={io:"I-O List",summary:"I-O Summary",wires:"Ferrule List",bom:"BOM",bom_lines:"BOM",devices:"Device List",devsummary:"Device Summary",symbols:"Symbols & Pins",
+ terminals:"Terminal Schedule",blocks:"Terminal Blocks",cables:"Cable Schedule",xref:"Device Cross Reference",contacts:"Contact Cross Reference",coils:"Coil-Contact Mapping",
+ signals:"Signal Links",sheetrefs:"Sheet References",panel_specs:"Panel Specifications",circuits:"Feeders - Circuits",annotations:"Sheet Annotations"};
+const NOTES={io:"Rack, slot, module, DI/DO/AI/AO/RTD/TC, spare I/O, signal, tag, field device, cable and terminal. Click a cell to edit - edits are learned.",
+ summary:"Channels, used and spare per PLC module.",
+ wires:"Ferrule and wire numbers with From / To terminals, traced from the drawings, read from terminal-detail sheets, or derived for PLC terminals.",
+ bom:"Printed BOM sheets plus catalogue parts on the schematics. Duplicate lines are merged and quantities totalled.",
+ bom_lines:"Raw lines read from the printed BOM sheets. Corrections here update the BOM totals.",
+ terminals:"Terminal block, number, incoming and outgoing wire, cable, core and terminal type. Spare terminals are flagged.",
+ blocks:"Used and spare terminals per strip.",
+ cables:"Cable number, type, cores, source, destination and length. Rows marked 'derived' or 'generated' were not printed on the drawing - check them.",
+ devices:"Push buttons, selector switches, lamps, relays, contactors, MCB/MCCB, PLC modules, power supplies, HMI, VFD, sensors, transmitters, terminal blocks and other field devices.",
+ devsummary:"Count per device type (tagged devices plus printed BOM quantities).",symbols:"Every symbol recognised on the schematics with its pin labels and rating.",
+ xref:"Each device tag and the sheets it appears on.",contacts:"Every coil, contact (NO/NC with pins), main pole and overload with its page, column and printed cross-references.",
+ coils:"Per relay / contactor: coil location and every contact, with printed references resolved to pages.",signals:"Sheet-to-sheet signal links printed on the drawings.",sheetrefs:"Which sheets refer to which.",
+ panel_specs:"Panel details, general specifications, front-panel item schedule, internal layout, dimensions and drawing index.",circuits:"Motor feeders from the single line diagrams and legend sheets.",
+ annotations:"All remaining printed text on each sheet with the nearest device, so nothing on a page is lost."};
+const HEADS={rack:"PLC Rack",slot:"Slot",module_name:"Module",module_type:"Type",module_model:"Model",plc_address:"PLC Address",channel:"Ch.",tag:"Tag Name",description:"Signal Description",
+ signal_type:"Signal Type",field_device:"Field Device",cable_no:"Cable No.",terminal:"Terminal No.",remarks:"Remarks",spare:"Spare",sheet:"Sheet",conf:"Confidence",source:"Source",
+ feeder_no:"Feeder",rating_kw:"Rating",starter_type:"Starter",mcb:"MCB / MCCB",contactor:"Contactor",olr:"Overload",cable_size:"Cable Size",controls:"Controls",
+ dev_class:"Device Type",make:"Manufacturer",part_no:"Part Number",rating:"Rating",catalogue_no:"Catalogue No.",descr:"Description",panel:"Panel Ref.",
+ wire_no:"Wire No.",ferrule_no:"Ferrule No.",from_terminal:"From Terminal",to_terminal:"To Terminal",device_ref:"Device Ref.",cable_ref:"Cable Ref.",core_no:"Core No.",to_ref:"Link",
+ strip:"Terminal Strip",terminal_no:"Terminal No.",terminal_type:"Terminal Type",incoming_wire:"Incoming Wire",outgoing_wire:"Outgoing Wire",signal_tag:"Signal Tag",
+ cores:"Core Details",source_equipment:"Source Equipment",dest_equipment:"Destination Equipment",length_m:"Length (m)",cable_type:"Cable Type",
+ item_no:"Item",qty:"Qty",uom:"UoM",category:"Section",property_name:"Parameter",property_value:"Value",unit:"Unit",raw_text:"Drawing Text"};
+const HIDE={io:["module_model","channel","conf"],panel_specs:["raw_text"],wires:["to_ref"]};
+const REVIEW_KEYS={io:"io",wires:"wires",cables:"cables",devices:"devices",bom:"bom",terminals:"terminals"};
+const SRC={vector:"read",ocr:"OCR",drawing:"drawing",edited:"edited",manual:"manual",traced:"traced","terminal-sheet":"terminal sheet",derived:"derived","derived-io":"derived","ai-vision":"AI vision",symbol:"symbol",io:"from I/O",bom:"BOM sheet","bom-sheet":"BOM sheet"};
+const head=c=>HEADS[c]||c.replaceAll("_"," ").replace(/\b\w/g,x=>x.toUpperCase());
+
+let P=null,V="home",TAB=null,ENV={},AI={},OV=null,DOCS=[],state={q:"",flt:"",review:false,sort:null,limit:500},data=null,PV={doc:null,sheet:1,pages:1,zoom:100};
+
+/* -------- routing -------- */
+function goHome(){P=null;V="home";closePreview();render()}
+function go(v,tab){V=v;const n=NAV.find(x=>x.id==v);TAB=tab||(n&&n.tabs?n.tabs[0][0]:null);state={q:"",flt:"",review:false,sort:null,limit:500};render()}
+async function openProject(p){P=p;await refreshOverview();go("overview")}
+let RT=0;   // render token: a slower async view never overwrites the one the user moved to
+function render(){
+ RT++;
+ $("side").classList.toggle("on",!!P);$("hdrActs").style.display=P?"inline-flex":"none";
+ $("crumb").innerHTML=P?`<span>/</span><b>${esc(P.name)}</b>`:"";
+ renderNav();
+ if(!P)return viewHome();
+ ({overview:viewOverview,drawings:viewDrawings,learning:viewLearning}[V]||viewTable)();
+}
+function renderNav(){
+ if(!P){$("side").innerHTML="";return}
+ const t=(OV&&OV.tables)||{};let html="",g="";
+ for(const n of NAV){
+  if(n.grp!=g){g=n.grp;html+=`<div class="navh">${esc(g)}</div>`}
+  const rk=REVIEW_KEYS[n.id];const cnt=rk&&t[rk]?t[rk][0]:"";const rv=rk&&t[rk]&&t[rk][1]?`<span class="rv" title="rows to review">${t[rk][1]}</span>`:"";
+  html+=`<button class="navi ${V==n.id?"on":""}" onclick="go('${n.id}')"><span class="ix">${n.ix||""}</span>${esc(n.label)}${rv}<span class="num">${cnt}</span></button>`}
+ $("side").innerHTML=html}
+
+/* -------- home: project-wise database -------- */
+async function viewHome(){
+ const rt=RT;
+ const ps=await api("/api/projects");
+ if(rt!==RT)return;$("main").innerHTML=`<div class="view"><h1 class="t">Projects</h1><p class="lead">Each project keeps its drawings and all extracted engineering data. Open a project or create a new one, then upload the drawing PDFs.</p>
+  <div class="tools"><button class="btn pri" onclick="newProject()">+ New project</button><input type="search" id="pq" placeholder="Search projects" oninput="filterProjects()" aria-label="Search projects"></div>
+  <div class="grid" id="pgrid"></div></div>`;
+ window._ps=ps;filterProjects()}
+function filterProjects(){const q=($("pq")?.value||"").toLowerCase();const ps=(window._ps||[]).filter(p=>!q||(p.name+" "+(p.client||"")).toLowerCase().includes(q));
+ $("pgrid").innerHTML=ps.map(p=>`<div class="card click" onclick='openProject(${JSON.stringify({id:p.id,name:p.name})})' tabindex="0" onkeydown="if(event.key=='Enter')this.click()">
+   <h3>${esc(p.name)}</h3><div class="meta">${esc(p.client||"")}${p.client?" · ":""}${new Date(p.created*1000).toLocaleDateString()}</div>
+   <div style="display:flex;gap:18px;margin-top:12px"><div class="kpi"><span class="v">${p.docs}</span><span class="l">drawings</span></div><div class="kpi"><span class="v">${p.io}</span><span class="l">I/O points</span></div></div>
+   <div style="margin-top:10px;text-align:right"><button class="btn sm ghost danger" onclick="event.stopPropagation();delProject(${p.id},'${esc(p.name).replace(/'/g,"")}')">Delete</button></div></div>`).join("")
+  ||`<div class="empty" style="grid-column:1/-1"><b>${(window._ps||[]).length?"No matching projects":"No projects yet"}</b>Create a project to start extracting data from drawings.</div>`}
+function newProject(){dialog(`<h3>New project</h3><div class="lead" style="margin:0">One project per panel or drawing package.</div>
+ <label class="f" for="pn">Project name</label><input type="text" id="pn" placeholder="e.g. PRG-2526-637 ASEE Marvel 375 KLD">
+ <label class="f" for="pc">Client (optional)</label><input type="text" id="pc" placeholder="e.g. Aquacaresee Pvt. Ltd.">
+ <div class="acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="createProject()">Create project</button></div>`,"pn");
+ $("pc").onkeydown=$("pn").onkeydown=e=>{if(e.key=="Enter")createProject()}}
+async function createProject(){const n=$("pn").value.trim();if(!n){$("pn").focus();return}
+ try{const r=await api("/api/projects",JSONP({name:n,client:$("pc").value.trim()}));closeModal();openProject({id:r.id,name:n});setTimeout(()=>go("drawings"),50)}catch(e){toast(e.message)}}
+async function delProject(id,name){if(!await confirmBox(`Delete project "${name}"?`,"All drawings and extracted data of this project are removed. This cannot be undone.","Delete project"))return;
+ await api("/api/projects/"+id,{method:"DELETE"});toast("Project deleted");viewHome()}
+
+/* -------- overview -------- */
+async function refreshOverview(){if(!P)return;try{OV=await api(`/api/projects/${P.id}/overview`);DOCS=OV.docs}catch(e){OV=null;toast(e.message,8000)}renderNav()}
+async function viewOverview(){
+ const rt=RT;
+ await refreshOverview();
+ if(!OV){if(rt===RT)$("main").innerHTML=`<div class="view"><div class="empty"><b>Project data could not be loaded</b>Restart the application, then open the project again.<div style="margin-top:12px"><button class="btn" onclick="goHome()">Back to projects</button></div></div></div>`;return}
+ const t=OV.tables;
+ const card=(nav,label,key,extra)=>{const [n,r]=t[key]||[0,0];return `<div class="card click kpi" onclick="go('${nav}')"><span class="l">${label}</span><span class="v">${n}</span>
+   <span class="r ${r?"warn":"ok"}">${n?(r?`${r} to review`:"all checked or read from drawing"):(extra||"nothing yet")}</span></div>`};
+ const busy=OV.docs.some(d=>["processing","queued","ai"].includes(d.status));
+ const maxT=Math.max(1,...OV.sheet_types.map(x=>x.n));
+ if(rt!==RT)return;$("main").innerHTML=`<div class="view"><h1 class="t">${esc(P.name)}</h1>
+  <p class="lead">${OV.docs.length} drawing file(s), ${OV.sheets} sheets${OV.scanned?` (${OV.scanned} scanned)`:""}. ${OV.docs.length?"Review the highlighted rows, then export.":"Start by uploading the drawing PDFs."}</p>
+  ${OV.docs.length?"":`<div class="drop" onclick="go('drawings')" style="cursor:pointer"><b>Upload drawing PDFs</b><div class="meta">Vector and scanned PDFs, single or multi-page, several files at once.</div></div>`}
+  <div class="sec">Deliverables</div>
+  <div class="grid">${card("io","I/O List","io")}${card("wires","Ferrule List","wires")}${card("bom","Bill of Material","bom","no parts found")}
+   ${card("terminals","Terminal Schedule","terminals")}${card("cables","Cable Schedule","cables")}${card("devices","Devices & Instruments","devices")}
+   <div class="card click kpi" onclick="go('xref')"><span class="l">Cross Reference</span><span class="v">${OV.xrefs}</span><span class="r ok">coil / contact entries</span></div>
+   <div class="card click kpi" onclick="go('panel')"><span class="l">Panel specs & feeders</span><span class="v">${OV.specs}</span><span class="r ok">${OV.circuits} feeders</span></div></div>
+  <div class="row2" style="margin-top:8px"><div><div class="sec">Drawing files ${busy?'<span class="pill processing">processing</span>':""}</div><div class="card" style="padding:0">${docList(OV.docs)||`<div class="empty">No drawings yet</div>`}</div></div>
+   <div><div class="sec">Sheets by drawing type</div><div class="card bars">${OV.sheet_types.map(x=>`<div><span title="${esc(x.t)}">${esc(x.t||"Unknown")}</span><i style="width:${Math.max(4,140*x.n/maxT)}px"></i>${x.n}</div>`).join("")||'<div class="meta">-</div>'}</div>
+   <div class="sec">Learning</div><div class="card meta">${OV.corrections} correction(s) recorded. Every edit you make is learned and applied on the next extraction. <a href="#" onclick="go('learning');return false">View rules</a></div></div></div></div>`;
+ if(busy)poll()}
+function docList(ds){return ds.map(d=>{const st=d.status;const pct=st=="done"?100:(d.progress||0);
+ return `<div class="doc"><span class="nm" title="${esc(d.filename)}">${esc(d.filename)}</span><span><span class="pill ${st}">${st=="ai"?"AI pass":st}</span> <button class="btn sm ghost danger" onclick="delDoc(${d.id})" aria-label="Remove drawing">Remove</button></span>
+  ${st=="done"||st=="error"?"":`<div class="prog"><i style="width:${pct}%"></i></div>`}<div class="msg">${d.pages?d.pages+" pages · ":""}${esc(d.message||"")}</div></div>`}).join("")}
+let pollT;function poll(){clearTimeout(pollT);pollT=setTimeout(async()=>{await refreshOverview();if(V=="overview"||V=="drawings")render();},1500)}
+
+/* -------- drawings: batch upload + sheet register -------- */
+async function viewDrawings(){
+ const rt=RT;
+ await refreshOverview();if(!OV){OV={docs:DOCS||[],tables:{},sheet_types:[]}}const ss=await api(`/api/projects/${P.id}/sheets`);window._sheets=ss;
+ const types=[...new Set(ss.map(r=>r.draw_type_label||"Unknown"))].sort();
+ if(rt!==RT)return;$("main").innerHTML=`<div class="view tablev"><h1 class="t">Drawings & sheets</h1>
+  <div class="drop" id="drop"><b>Drop drawing PDFs here</b> or <button class="btn sm" onclick="file.click()">Browse...</button>
+   <div class="meta" style="margin-top:4px">Batch processing: select several PDFs at once. Vector PDFs are read directly; scanned pages use OCR${ENV.ocr?"":" (not installed - "+(AI.enabled?"AI vision is used instead":"install Tesseract")+")"}.</div></div>
+  <div class="card" style="padding:0;margin:10px 0;max-height:190px;overflow:auto">${docList(OV.docs)||'<div class="empty" style="padding:16px">No drawings uploaded yet</div>'}</div>
+  <div class="tools"><input type="search" id="q" placeholder="Search sheets (title, type, drawing no.)" value="${esc(state.q)}" oninput="state.q=this.value;drawSheets()" aria-label="Search sheets">
+   <select id="flt" onchange="state.flt=this.value;drawSheets()" aria-label="Filter by drawing type"><option value="">All drawing types</option>${types.map(t=>`<option ${t==state.flt?"selected":""}>${esc(t)}</option>`).join("")}</select>
+   <button class="btn" onclick="reprocess()" ${OV.docs.length?"":"disabled"} title="Run extraction again on every drawing of this project">Re-extract all</button><span class="cnt" id="cnt"></span></div>
+  <div class="work"><div class="tbl" id="tbl"></div><div class="split" id="split"></div>${previewHTML()}</div></div>`;
+ wireDrop();wireSplit();drawSheets();restorePreview();
+ if(OV.docs.some(d=>["processing","queued","ai"].includes(d.status)))poll()}
+function drawSheets(){const q=state.q.toLowerCase(),f=state.flt;
+ const rs=(window._sheets||[]).filter(r=>(!f||(r.draw_type_label||"Unknown")==f)&&(!q||[r.title,r.draw_type_label,r.drawing_no,r.revision,r.filename,r.label].join(" ").toLowerCase().includes(q)));
+ $("cnt").textContent=`${rs.length} of ${(window._sheets||[]).length} sheets`;
+ $("tbl").innerHTML=rs.length?`<table><thead><tr><th>Page</th><th>Sheet No.</th><th>Drawing title</th><th>Drawing type</th><th>Drawing No.</th><th>Rev.</th><th>Source</th><th>File</th></tr></thead><tbody>${rs.map(r=>
+  `<tr><td class="lnk" onclick="showSheet(${r.doc_id},${r.sheet})">${r.sheet}</td><td>${esc(r.label)}</td><td>${esc(r.title)}</td><td><span class="pill src">${esc(r.draw_type_label||"Unknown")}</span></td><td>${esc(r.drawing_no)}</td><td>${esc(r.revision)}</td><td>${r.scanned?'<span class="pill processing">scanned</span>':'<span class="pill done">vector</span>'}</td><td class="meta">${esc(r.filename)}</td></tr>`).join("")}</tbody></table>`
+  :`<div class="empty"><b>No sheets</b>${(window._sheets||[]).length?"Nothing matches the search.":"Upload drawing PDFs above."}</div>`}
+function wireDrop(){const d=$("drop");if(!d)return;["dragover","dragenter"].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.add("over")}));
+ ["dragleave","drop"].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.remove("over")}));d.addEventListener("drop",ev=>upload(ev.dataTransfer.files))}
+$("file").onchange=e=>{upload(e.target.files);e.target.value=""};
+async function upload(files){const list=[...files].filter(f=>/\.pdf$/i.test(f.name));if(!list.length){toast("Choose PDF files");return}
+ if(ENV.vercel&&list.some(f=>f.size>4*1024*1024)){toast("The web demo accepts files up to about 4 MB. Use the Windows application for larger drawings.",7000);return}
+ const fd=new FormData();list.forEach(f=>fd.append("files",f));toast(`Uploading ${list.length} file(s)...`);
+ try{await api(`/api/projects/${P.id}/upload`,{method:"POST",body:fd});toast(`${list.length} file(s) queued for extraction`);if(V!="drawings")go("drawings");else viewDrawings()}catch(e){toast("Upload failed: "+e.message,7000)}}
+async function delDoc(id){if(!await confirmBox("Remove this drawing?","Its extracted data is removed from all tables.","Remove"))return;await api("/api/docs/"+id,{method:"DELETE"});toast("Drawing removed");render()}
+async function reprocess(){if(!await confirmBox("Re-extract all drawings?","Rows extracted from the drawings are rebuilt using the latest learned corrections. Manual edits on those rows are replaced.","Re-extract"))return;
+ await api(`/api/projects/${P.id}/reprocess`,{method:"POST"});toast("Re-extraction started");render()}
+
+/* -------- data tables (all deliverables) -------- */
+async function viewTable(){
+ const rt=RT;
+ const n=NAV.find(x=>x.id==V);const key=TAB||n.tabs[0][0];
+ if(rt!==RT)return;$("main").innerHTML=`<div class="view tablev"><h1 class="t">${n.ix?n.ix+". ":""}${esc(n.label)}</h1>
+  ${n.tabs.length>1?`<div class="subtabs" role="tablist">${n.tabs.map(([k,l])=>`<button role="tab" class="${k==key?"on":""}" onclick="TAB='${k}';state={q:'',flt:'',review:false,sort:null,limit:500};RT++;viewTable()">${esc(l)}</button>`).join("")}</div>`:""}
+  <div class="hint">${esc(NOTES[key]||"")}</div>
+  <div class="tools"><input type="search" id="q" placeholder="Search this table" value="${esc(state.q)}" oninput="state.q=this.value;debounce()" aria-label="Search">
+   <select id="flt" style="display:none" onchange="state.flt=this.value;loadTable()" aria-label="Filter"></select>
+   <label class="toggle ${state.review?"on":""}" id="revT" style="display:none"><input type="checkbox" ${state.review?"checked":""} onchange="state.review=this.checked;loadTable()"> Needs review only</label>
+   <button class="btn" id="addBtn" style="display:none" onclick="addRow()">+ Add row</button>
+   <span class="cnt" id="cnt"></span>
+   <label class="toggle" title="Show full text in every cell"><input type="checkbox" onchange="document.querySelector('#tbl table')?.classList.toggle('wrap',this.checked);state.wrap=this.checked"> Wrap text</label>
+   <span class="menu" id="tm"><button class="btn" onclick="event.stopPropagation();$('tm').classList.toggle('open')" aria-haspopup="true">Export table ▾</button><span class="dd"><button onclick="exportOne('${key}','xlsx')">Excel (.xlsx)</button><button onclick="exportOne('${key}','csv')">CSV</button><button onclick="exportOne('${key}','pdf')">PDF</button><button onclick="exportOne('${key}','xml')">XML</button></span></span></div>
+  <div class="work"><div class="tbl" id="tbl"><div class="empty">Loading...</div></div><div class="split" id="split"></div>${previewHTML()}</div></div>`;
+ wireSplit();restorePreview();await loadTable()}
+let deb;function debounce(){clearTimeout(deb);deb=setTimeout(loadTable,250)}
+async function loadTable(){
+ const key=TAB,rt=RT;let j;
+ if(key=="learning")return;
+ try{j=await api(`/api/projects/${P.id}/table/${key}?q=${encodeURIComponent(state.q)}&filter=${encodeURIComponent(state.flt)}&review=${state.review?1:0}`)}catch(e){$("tbl").innerHTML=`<div class="empty"><b>Could not load</b>${esc(e.message)}</div>`;return}
+ if(rt!==RT||key!==TAB||!$("tbl"))return;
+ data=j;const f=$("flt");
+ if(j.filter_options&&j.filter_options.length){f.style.display="";f.innerHTML=`<option value="">All ${esc(head(j.filter_label).toLowerCase())}s</option>`+j.filter_options.map(o=>`<option ${o==state.flt?"selected":""}>${esc(SRC[o]||o)}</option>`).join("");
+  [...f.options].forEach((o,i)=>{if(i)o.value=j.filter_options[i-1]})}else f.style.display="none";
+ $("revT").style.display=j.editable&&["io","wires","cables","devices","bom_lines","terminals"].includes(TAB)?"":"none";$("addBtn").style.display=j.editable?"":"none";
+ drawTable()}
+function drawTable(){
+ const j=data;if(!j)return;
+ const cnt=j.total;$("cnt").textContent=`${cnt} row${cnt==1?"":"s"}${state.review?" to review":""}`;
+ if(!j.rows.length){$("tbl").innerHTML=`<div class="empty"><b>${state.q||state.flt||state.review?"No matching rows":"No data yet"}</b>${state.q||state.flt||state.review?"Clear the search or filters.":(DOCS.length?"Nothing of this kind was found on the drawings. You can add rows by hand.":"Upload drawing PDFs on the Drawings page.")}</div>`;return}
+ let rows=j.rows.slice();const s=state.sort;
+ if(j.editable){
+  const cols=j.cols.filter(c=>!(HIDE[TAB]||[]).includes(c));
+  if(s)rows.sort((a,b)=>cmp(a[s.c],b[s.c])*s.d);
+  const vis=rows.slice(0,state.limit);
+  $("tbl").innerHTML=`<table><thead><tr>${cols.map(c=>th(c,c)).join("")}<th></th></tr></thead><tbody>${vis.map(r=>`<tr data-id="${r.id}" class="${r._review?"review":""} ${r.spare=="1"?"spare":""}" title="${r._review?"Needs review":""}">${cols.map(c=>cell(c,r)).join("")}<td class="act"><button class="btn sm ghost danger" onclick="delRow(${r.id})" aria-label="Delete row">Delete</button></td></tr>`).join("")}</tbody></table>${more(rows.length)}`;
+ }else{
+  const idx=j.cols.map((c,i)=>i);
+  if(s)rows.sort((a,b)=>cmp(a[s.c],b[s.c])*s.d);
+  const vis=rows.slice(0,state.limit);
+  $("tbl").innerHTML=`<table><thead><tr>${j.cols.map((c,i)=>th(c,i)).join("")}</tr></thead><tbody>${vis.map(r=>`<tr>${r.map((v,i)=>/^(sheet|sheet number|first sheet|coil sheet)$/i.test(j.cols[i])&&/^\d+$/.test(String(v))?`<td class="lnk" onclick="showSheet(null,${v})">${esc(v)}</td>`:`<td title="${esc(v)}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>${more(rows.length)}`}
+ if(state.wrap)document.querySelector("#tbl table")?.classList.add("wrap")}
+const cmp=(a,b)=>{const x=parseFloat(a),y=parseFloat(b);if(!isNaN(x)&&!isNaN(y)&&String(a).trim()!==""&&String(b).trim()!=="")return x-y;return String(a??"").localeCompare(String(b??""),undefined,{numeric:true})};
+function th(label,c){const s=state.sort;const on=s&&s.c===c;return `<th onclick="sortBy(${typeof c=="number"?c:`'${c}'`})" title="Sort">${esc(typeof label=="string"&&HEADS[label]?HEADS[label]:head(String(label)))} ${on?`<span class="ar">${s.d>0?"▲":"▼"}</span>`:""}</th>`}
+function sortBy(c){const s=state.sort;state.sort=s&&s.c===c?(s.d>0?{c,d:-1}:null):{c,d:1};drawTable()}
+function more(n){return n>state.limit?`<div class="more"><button class="btn" onclick="state.limit+=1000;drawTable()">Show more (${n-state.limit} more rows)</button></div>`:""}
+function cell(c,r){const v=r[c]??"";
+ if(c=="sheet")return `<td class="lnk" onclick="showSheet(${r.doc_id},${parseInt(v)||1})" title="Preview this sheet">${esc(v)}</td>`;
+ if(c=="source")return `<td><span class="pill src ${["derived","derived-io","ai-vision","terminal-sheet"].includes(v)?"rev":""}">${esc(SRC[v]||v)}</span></td>`;
+ if(c=="spare")return `<td contenteditable="plaintext-only" data-f="${c}" data-v="${esc(v)}" onfocus="this.dataset.v=this.textContent" onblur="save(this)" onkeydown="keyEdit(event,this)">${v=="1"?"Yes":esc(v)}</td>`;
+ return `<td contenteditable="plaintext-only" data-f="${c}" title="${esc(v)}" onfocus="this.dataset.v=this.textContent" onblur="save(this)" onkeydown="keyEdit(event,this)">${esc(v)}</td>`}
+function keyEdit(e,td){if(e.key=="Enter"&&!e.shiftKey){e.preventDefault();td.blur()}else if(e.key=="Escape"){td.textContent=td.dataset.v;td.blur();e.stopPropagation()}}
+async function save(td){let val=td.textContent;if(val===td.dataset.v)return;if(td.dataset.f=="spare")val=/^(yes|1|y|true|spare)$/i.test(val.trim())?"1":"";
+ const id=td.parentNode.dataset.id;
+ try{await api(`/api/row/${TAB}/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({field:td.dataset.f,value:val})});
+  td.dataset.v=td.textContent;td.classList.remove("saved");void td.offsetWidth;td.classList.add("saved");
+  const r=data.rows.find(x=>String(x.id)==id);if(r){r[td.dataset.f]=val;if(TAB=="io"){r.source="edited";r.conf="1.0";r._review=false;td.parentNode.classList.remove("review")}}
+  refreshOverview()}catch(e){toast("Not saved: "+e.message,5000);td.textContent=td.dataset.v}}
+async function delRow(id){if(!await confirmBox("Delete this row?","It is removed from the table and from exports.","Delete"))return;await api(`/api/row/${TAB}/${id}`,{method:"DELETE"});await loadTable();refreshOverview()}
+async function addRow(){await api(`/api/row/${TAB}`,JSONP({project_id:P.id,values:{}}));state.sort=null;await loadTable();
+ const tb=$("tbl");tb.scrollTop=tb.scrollHeight;const last=tb.querySelector("tbody tr:last-child td[contenteditable]");if(last)last.focus();refreshOverview()}
+
+/* -------- learning -------- */
+async function viewLearning(){
+ const rt=RT;
+ const L=await api("/api/learning");
+ if(rt!==RT)return;$("main").innerHTML=`<div class="view tablev"><h1 class="t">Learned corrections</h1>
+  <div class="hint">Every edit becomes a rule applied on the next extraction: exact value fixes, single-word spelling fixes in all descriptions, device type per part number and per tag family. ${L.corrections} correction(s) recorded, ${L.applied} automatic fix(es) applied so far.</div>
+  <div class="tools"><input type="search" id="q" placeholder="Search rules" oninput="drawRules(this.value)" aria-label="Search rules">
+   <span class="cnt" id="cnt"></span><a class="btn" href="/api/learning/export">Export rules</a><button class="btn" onclick="rulefile.click()">Import rules</button><input type="file" id="rulefile" accept=".json" style="display:none" onchange="importRules(this)"></div>
+  <div class="work"><div class="tbl" id="tbl"></div></div></div>`;
+ window._rules=L.rules;drawRules("")}
+const ENT={io:"I/O List",devices:"Devices",bom_lines:"BOM",cables:"Cables",wires:"Ferrules",terminals:"Terminals",circuits:"Feeders","*":"All descriptions"};
+const FLD={token:"word spelling","dev_class@part":"device type (by part no.)","make@part":"manufacturer (by part no.)","dev_class@suffix":"device type (by tag family)"};
+function drawRules(q){q=(q||"").toLowerCase();const rs=(window._rules||[]).filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));$("cnt").textContent=rs.length+" rules";
+ $("tbl").innerHTML=rs.length?`<table><thead><tr><th>Applies to</th><th>Field</th><th>When the drawing says</th><th>Use instead</th><th>Times applied</th><th></th></tr></thead><tbody>${rs.map(r=>`<tr><td>${esc(ENT[r.entity]||r.entity)}</td><td>${esc(FLD[r.field]||head(r.field))}</td><td>${esc(r.original)}</td><td><b>${esc(r.corrected)}</b></td><td>${r.hits}</td><td class="act"><button class="btn sm ghost danger" onclick="delRule(${r.id})">Forget</button></td></tr>`).join("")}</tbody></table>`
+  :`<div class="empty"><b>No rules yet</b>Correct a cell in any table - the correction is learned automatically.</div>`}
+async function delRule(id){await api("/api/learning/"+id,{method:"DELETE"});toast("Rule removed");viewLearning()}
+async function importRules(el){if(!el.files[0])return;const fd=new FormData();fd.append("file",el.files[0]);try{const r=await api("/api/learning/import",{method:"POST",body:fd});toast(r.imported+" rules imported");viewLearning()}catch(e){toast(e.message)}}
+
+/* -------- preview window -------- */
+function previewHTML(){return `<div class="prev" id="prev" aria-label="Drawing preview"><header><b id="pt">Preview</b>
+ <button class="btn sm" onclick="page(-1)" title="Previous sheet (←)" aria-label="Previous sheet">◀</button><input type="text" id="pg" style="width:46px;padding:3px 5px;text-align:center" onkeydown="if(event.key=='Enter')gotoPage(this.value)" aria-label="Sheet number"><span class="meta" id="pgn"></span>
+ <button class="btn sm" onclick="page(1)" title="Next sheet (→)" aria-label="Next sheet">▶</button>
+ <button class="btn sm" onclick="zoom(-1)" aria-label="Zoom out">−</button><button class="btn sm" onclick="zoom(0)" title="Fit width">Fit</button><button class="btn sm" onclick="zoom(1)" aria-label="Zoom in">+</button>
+ <button class="btn sm" onclick="$('prev').classList.toggle('full')" title="Full screen">⛶</button>
+ <button class="btn sm" id="rr" onclick="reread()" style="display:none" title="Read the PLC channels of this sheet again with AI vision">AI re-read</button>
+ <button class="btn sm" onclick="closePreview()" aria-label="Close preview">✕</button></header><div class="img" id="pimgw"><img id="pimg" alt="drawing sheet"></div></div>`}
+function showSheet(doc,sheet){
+ if(!doc){const d=DOCS.filter(x=>x.status=="done");if(!d.length){toast("No processed drawing to preview");return}
+  doc=(d.find(x=>(x.pages||0)>=sheet)||d[0]).id;if(d.length>1)toast("Several drawings in this project - showing "+(d.find(x=>x.id==doc)||{}).filename,2500)}
+ const dd=DOCS.find(x=>x.id==doc)||{};PV={...PV,doc,sheet,pages:dd.pages||sheet,on:true};drawPreview()}
+function drawPreview(){const p=$("prev");if(!p)return;p.classList.add("on");$("split").classList.add("on");
+ $("pt").textContent=(DOCS.find(x=>x.id==PV.doc)||{}).filename||"Preview";$("pg").value=PV.sheet;$("pgn").textContent="/ "+PV.pages;
+ $("pimg").src=`/api/preview/${PV.doc}/${PV.sheet}.png`;$("pimg").style.width=PV.zoom+"%";$("rr").style.display=AI.enabled?"":"none"}
+function restorePreview(){if(PV.on&&PV.doc)drawPreview()}
+function closePreview(){PV.on=false;const p=$("prev");if(p){p.classList.remove("on","full");$("split").classList.remove("on")}}
+function page(d){if(!PV.on)return;const n=PV.sheet+d;if(n<1||n>PV.pages)return;PV.sheet=n;drawPreview()}
+function gotoPage(v){const n=parseInt(v);if(n>=1&&n<=PV.pages){PV.sheet=n;drawPreview()}}
+function zoom(d){PV.zoom=d==0?100:Math.max(50,Math.min(400,PV.zoom+d*25));$("pimg").style.width=PV.zoom+"%"}
+function wireSplit(){const s=$("split");if(!s)return;s.onmousedown=e=>{e.preventDefault();const w=$("prev"),box=s.parentNode.getBoundingClientRect();
+ const mv=ev=>{w.style.width=Math.max(320,Math.min(box.width-300,box.right-ev.clientX))+"px"};const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up)};
+ document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up)}}
+async function reread(){const mt=await choose("AI re-read of this sheet","The sheet's PLC channels are read again from the image and replace the current rows (flagged for review). Module type on this sheet:",["DI","DO","AI","AO","RTD","TC"]);
+ if(!mt)return;toast("Reading the sheet with AI vision - this can take up to a minute...",60000);
+ try{const r=await api(`/api/docs/${PV.doc}/sheet/${PV.sheet}/reread`,JSONP({module_type:mt}));toast(`AI read ${r.channels} channel(s). Review the flagged rows.`);if(V=="io")loadTable();refreshOverview()}catch(e){toast(e.message,6000)}}
+
+/* -------- export -------- */
+const EXPORT_GROUPS=[["Deliverables",["I-O List","I-O Summary","Ferrule List","BOM","Terminal Schedule","Terminal Blocks","Cable Schedule","Device List","Device Summary"]],
+ ["Cross reference",["Device Cross Reference","Contact Cross Reference","Coil-Contact Mapping","Signal Links","Sheet References"]],
+ ["Other data",["Feeders - Circuits","Panel Specifications","Drawing Register","Symbols & Pins","Sheet Annotations"]]];
+async function openExport(){if(!P)return;const ds=await api(`/api/projects/${P.id}/datasets`);const cnt=Object.fromEntries(ds.map(d=>[d.name,d.rows]));
+ const def=new Set(EXPORT_GROUPS[0][1].concat(EXPORT_GROUPS[1][1]).concat(["Panel Specifications","Feeders - Circuits"]));
+ dialog(`<h3>Export engineering documents</h3><div class="meta">Choose the documents and the file format. Excel puts each document on its own worksheet.</div>
+  ${EXPORT_GROUPS.map(([g,names])=>`<label class="f">${g}</label><div class="cols2">${names.filter(n=>n in cnt).map(n=>`<label class="chk"><input type="checkbox" class="exd" value="${esc(n)}" ${def.has(n)?"checked":""}> ${esc(n)}<span>${cnt[n]}</span></label>`).join("")}</div>`).join("")}
+  <div style="margin-top:6px"><button class="btn sm ghost" onclick="document.querySelectorAll('.exd').forEach(c=>c.checked=true)">Select all</button><button class="btn sm ghost" onclick="document.querySelectorAll('.exd').forEach(c=>c.checked=false)">Clear</button></div>
+  <label class="f">Format</label><div class="fmt"><label><input type="radio" name="fmt" value="xlsx" checked> Excel (.xlsx)</label><label><input type="radio" name="fmt" value="pdf"> PDF</label><label><input type="radio" name="fmt" value="csv"> CSV (.zip)</label><label><input type="radio" name="fmt" value="xml"> XML</label></div>
+  <div class="acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="doExport()">Download</button></div>`)}
+function doExport(){const t=[...document.querySelectorAll(".exd:checked")].map(c=>c.value);if(!t.length){toast("Select at least one document");return}
+ const f=document.querySelector("input[name=fmt]:checked").value;location.href=`/api/export/${P.id}/${f}?tables=${encodeURIComponent(t.join("|"))}`;closeModal();toast("Preparing download...")}
+function exportOne(key,fmt){location.href=`/api/export/${P.id}/${fmt}?tables=${encodeURIComponent(DS[key])}`}
+
+/* -------- AI / status -------- */
+async function loadStatus(){try{ENV=await api("/api/env")}catch(e){}try{AI=await api("/api/ai/status")}catch(e){AI={}}
+ $("stAi").innerHTML=`<span class="dot ${AI.enabled?"ok":"warn"}"></span>AI ${AI.enabled?"on":"off"}`;$("stAi").title=AI.enabled?`Text: ${AI.fast_model} · Drawing images: ${AI.vision_model}`:(AI.hint||"No AI provider configured in .env");
+ $("stOcr").innerHTML=`<span class="dot ${ENV.ocr?"ok":"warn"}"></span>OCR ${ENV.ocr?"ready":"not installed"}`;$("stOcr").title=ENV.ocr?"Tesseract found - scanned PDFs are read":"Install Tesseract-OCR to read scanned PDFs";
+ $("stData").textContent=ENV.data_folder?"Data: "+ENV.data_folder:"";$("aiBtn").style.display=AI.enabled?"":"none"}
+async function aiRun(){toast("Running the AI pass on all drawings...",60000);try{const r=await api(`/api/projects/${P.id}/ai/run`,{method:"POST"});toast(r.notes.join(" | ")||"AI pass finished - nothing needed filling",6000);render()}catch(e){toast(e.message,6000)}}
+
+/* -------- dialogs -------- */
+function dialog(html,focusId){$("dlg").innerHTML=html;$("modal").classList.add("on");setTimeout(()=>{const f=focusId?$(focusId):$("dlg").querySelector("button.pri");if(f)f.focus()},30)}
+function closeModal(){$("modal").classList.remove("on");if(window._res){window._res(null);window._res=null}}
+function confirmBox(title,text,ok){return new Promise(res=>{dialog(`<h3>${esc(title)}</h3><div class="meta" style="margin-top:6px">${esc(text)}</div><div class="acts"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" id="okb">${esc(ok||"OK")}</button></div>`);
+ window._res=res;$("okb").onclick=()=>{window._res=null;$("modal").classList.remove("on");res(true)}})}
+function choose(title,text,opts){return new Promise(res=>{dialog(`<h3>${esc(title)}</h3><div class="meta" style="margin:6px 0 12px">${esc(text)}</div><div class="fmt">${opts.map(o=>`<button class="btn" onclick="window._pick('${o}')">${o}</button>`).join("")}</div><div class="acts"><button class="btn" onclick="closeModal()">Cancel</button></div>`);
+ window._res=res;window._pick=v=>{window._res=null;$("modal").classList.remove("on");res(v)}})}
+
+/* -------- keyboard -------- */
+document.addEventListener("click",()=>document.querySelectorAll(".menu.open").forEach(m=>m.classList.remove("open")));
+document.addEventListener("keydown",e=>{
+ const typing=/INPUT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable;
+ if(e.key=="Escape"){if($("modal").classList.contains("on"))closeModal();else if(PV.on)closePreview()}
+ if(e.key=="/"&&!typing){const q=$("q")||$("pq");if(q){e.preventDefault();q.focus()}}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()=="e"&&P){e.preventDefault();openExport()}
+ if(!typing&&PV.on&&(e.key=="ArrowLeft"||e.key=="ArrowRight")){e.preventDefault();page(e.key=="ArrowLeft"?-1:1)}});
+
+loadStatus();render();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

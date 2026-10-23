@@ -1,7 +1,6 @@
-﻿"""SQLite project database (one file per installation; project-wise tables)."""
+"""SQLite project database (one file per installation; project-wise tables)."""
 import sqlite3, os, json, threading, time
-
-DB_PATH = os.environ.get("PRG_DB") or (os.path.join("/tmp", "prg.db") if os.environ.get("VERCEL") else os.path.join(os.path.dirname(__file__), "..", "data", "prg.db"))
+from .paths import DB_PATH
 _lock = threading.Lock()
 
 TABLES = {
@@ -9,10 +8,13 @@ TABLES = {
                        "signal_type", "field_device", "cable_no", "terminal", "remarks", "spare", "sheet", "conf", "source"]),
     "circuits": ("circuits", ["feeder_no", "description", "rating_kw", "starter_type", "mcb", "contactor", "olr", "cable_size", "terminal", "controls", "sheet"]),
     "devices": ("devices", ["sheet", "tag", "dev_class", "make", "part_no", "rating", "catalogue_no", "descr", "panel", "source"]),
-    "wires": ("wires", ["sheet", "wire_no", "ferrule_no", "from_terminal", "to_terminal", "device_ref", "cable_ref", "core_no", "to_ref"]),
+    "wires": ("wires", ["sheet", "wire_no", "ferrule_no", "from_terminal", "to_terminal", "device_ref", "cable_ref", "core_no", "to_ref", "source"]),
     "terminals": ("terminals", ["strip", "terminal_no", "terminal_type", "incoming_wire", "outgoing_wire", "cable_no", "core_no",
                                 "signal_tag", "plc_address", "spare", "sheet"]),
-    "cables": ("cables", ["cable_no", "cable_type", "cores", "source_equipment", "dest_equipment", "length_m", "remarks"]),
+    "cables": ("cables", ["cable_no", "cable_type", "cores", "source_equipment", "dest_equipment", "length_m", "remarks", "sheet", "source"]),
+    "symbols": ("symbols", ["sheet", "tag", "role", "dev_class", "pins", "rating", "col"]),
+    "annotations": ("annotations", ["sheet", "text", "near_tag", "kind"]),
+    "bom": ("bom_items", ["sheet", "item_no", "descr", "make", "part_no", "qty", "uom", "rating", "catalogue_no", "panel", "source"]),
     "xrefs": ("xrefs", ["sheet", "direction", "target_sheet", "target_col", "label", "text"]),
     "panel_specs": ("panel_specs", ["sheet", "category", "property_name", "property_value", "unit", "raw_text"]),
 }
@@ -29,6 +31,9 @@ CREATE TABLE IF NOT EXISTS devices(id INTEGER PRIMARY KEY, project_id INT, doc_i
 CREATE TABLE IF NOT EXISTS wires(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(wires)s);
 CREATE TABLE IF NOT EXISTS terminals(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(terminals)s);
 CREATE TABLE IF NOT EXISTS cables(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(cables)s);
+CREATE TABLE IF NOT EXISTS symbols(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(symbols)s);
+CREATE TABLE IF NOT EXISTS annotations(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(annotations)s);
+CREATE TABLE IF NOT EXISTS bom_items(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(bom)s);
 CREATE TABLE IF NOT EXISTS xrefs(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(xrefs)s);
 CREATE TABLE IF NOT EXISTS panel_specs(id INTEGER PRIMARY KEY, project_id INT, doc_id INT, %(panel_specs)s);
 CREATE TABLE IF NOT EXISTS corrections(id INTEGER PRIMARY KEY, entity TEXT, field TEXT, original TEXT, corrected TEXT, context TEXT, created REAL);
@@ -61,13 +66,19 @@ def _migrate():
         ("sheets", "drawing_no", "TEXT DEFAULT ''"),
         ("sheets", "revision", "TEXT DEFAULT ''"),
         ("sheets", "section_view", "TEXT DEFAULT ''"),
+        ("wires", "source", "TEXT DEFAULT ''"),
+        ("cables", "sheet", "TEXT DEFAULT ''"),
+        ("cables", "source", "TEXT DEFAULT ''"),
     ]
     with _lock, conn() as c:
         existing = {(r[0], r[1]) for r in c.execute(
             "SELECT m.name, p.name FROM sqlite_master m "
             "JOIN pragma_table_info(m.name) p WHERE m.type='table'"
         )}
+        tables = {t for t, _ in existing}
         for tbl, col, typedef in new_cols:
+            if tbl not in tables:
+                continue
             if (tbl, col) not in existing:
                 try:
                     c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {typedef}")
@@ -109,3 +120,7 @@ def get_setting(key, default=""):
 def set_setting(key, value):
     x("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
 
+
+
+# every table that holds per-document extraction results (cleared on re-ingest / document delete)
+DOC_TABLES = ("io_rows", "circuits", "devices", "wires", "terminals", "cables", "xrefs", "sheets", "modules", "panel_specs", "bom_items", "symbols", "annotations")

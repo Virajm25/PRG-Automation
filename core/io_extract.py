@@ -314,6 +314,7 @@ def extract_io_sheet(page, text, sheet_no, ocr=False):
 
         out.append(_mk_row(mtype, hdr, sheet_no, final_addr, ch, strip_name, strip_words, ax, pitch, rot_addr))
 
+    _attach_links(out, anchors, chars, pitch)
     cleaned = []
     for r in out:
         lab = (r["description"] or r["tag"]).strip()
@@ -330,6 +331,47 @@ def extract_io_sheet(page, text, sheet_no, ocr=False):
     out = cleaned
     mod = dict(sheet=sheet_no, type=mtype, **hdr)
     return mod, out
+
+
+LINK_RE = re.compile(r"^(?:[A-Za-z0-9+\-_]{1,8}/)?(\d{1,3}\.\d)$")
+CIRC_WIRE_RE = re.compile(r"^\d+F-\d{2,4}$|^\d+F-[RYBN]\d?$")
+CIRC_DEV_RE = re.compile(r"^\d+F-(?:C\d?|OLR|MCB|ILSW\d?|K\d+|R\d+)$")
+MOD_TERM_RE = re.compile(r"^(?:X\d{1,2}|Y\d{1,2}|C\d{1,2}|O\d{1,2}|L\+\d?|S/S|COM\d?|V\d\+|I\d\+|ZP\d|UP|[AB]\d|24V[+-]|M\d?|IN\d+|OUT\d+)$")
+
+
+FIELD_TAG_RE = re.compile(r"^[A-Z]{1,5}\d?-[A-Z]{2,5}-[A-Z]?\d{1,3}$")    # LSL7-TWT-10, LT-MBT-01, ZSO-POV-V1
+
+
+def _attach_links(rows, anchors, chars, pitch):
+    """Per channel column: module terminal label, circuit-location links (e.g. 17.7 = sheet.column where the signal is used) and wire numbers."""
+    if not rows or not anchors or not pitch:
+        return
+    words = []
+    for L in cluster_lines(chars, 3.5):
+        words += _words_in_line(L["chars"])
+    for r, (ax, _a) in zip(rows, anchors):
+        col = [t for x, t in words if abs(x - ax) <= pitch * 0.5]
+        links = sorted({LINK_RE.match(t).group(1) for t in col if LINK_RE.match(t)})
+        wires = sorted({t for t in col if CIRC_WIRE_RE.match(t)})
+        mods = [t for t in col if MOD_TERM_RE.match(t)]
+        devs = sorted({t for t in col if CIRC_DEV_RE.match(t)})
+        bits = []
+        if mods:
+            bits.append("module terminal " + "/".join(dict.fromkeys(mods)))
+        if links:
+            bits.append("used at " + ", ".join(links))
+        if wires:
+            bits.append("wire " + ", ".join(wires))
+        if devs:
+            bits.append("via " + ", ".join(devs))
+        ftags = [t for t in dict.fromkeys(col) if FIELD_TAG_RE.match(t)]
+        if r.get("spare") and ftags:
+            # the label band says SPARE but a field device is drawn and wired to this channel - a drawing inconsistency
+            bits.append(f"labelled SPARE on the drawing but field device {', '.join(ftags)} is wired to this channel - verify")
+            r["field_device"] = ftags[0]
+            r["_spare_conflict"] = True
+        if bits:
+            r["remarks"] = (r["remarks"] + "; " if r["remarks"] else "") + "; ".join(bits)
 
 
 def _pitch(xs):

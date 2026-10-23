@@ -28,6 +28,7 @@ PART_CLASSES = [
     (r"^6AV|^HMI|^DOP|^MTP|^XBT|^HMIG|^TP\d", "HMI"),
     (r"^6EP|^ABL|^QUINT|^NDR|^SDR|^HDR|^MDR|^RS-", "Power Supply"),
     (r"^3PL|^XB[47]|^XA2|^22[0-9]{3}", "Pilot / Push Button / Lamp"),
+    (r"^MFM|^EM\d|^PM\d{3}|^DPM", "Multifunction Meter"),
 ]
 TAG_SUFFIX_CLASSES = [
     (r"-?MCB\b|-F\d*$", "MCB"), (r"-?MCCB\b", "MCCB"), (r"-C\d*\b|-CON\b|-K\d+M?$", "Contactor"),
@@ -50,7 +51,11 @@ def classify(tag="", part="", desc=""):
         if re.search(rx, t):
             return cls
     d = (desc or "").upper()
-    for kw, cls in [("PUSH BUTTON", "Push Button"), ("SELECTOR", "Selector Switch"), ("LAMP", "Lamp"),
+    for kw, cls in [("PUSH BUTTON", "Push Button"), ("PUSHBUTTON", "Push Button"), ("EMERGENCY", "Push Button"), ("SELECTOR", "Selector Switch"),
+                    ("INDICATION", "Lamp"), ("TUBELIGHT", "Lamp"), ("LAMP", "Lamp"), ("MCCB", "MCCB"), ("MCB", "MCB"), ("MAIN SWITCH", "MCB"),
+                    ("SMPS", "Power Supply"), ("REDUNDANCY", "Power Supply"), ("POWER SUPPLY", "Power Supply"), ("HMI", "HMI"), ("VFD", "VFD"),
+                    ("DRIVE", "VFD"), ("TERMINAL", "Terminal Block"), ("PLC", "PLC Module"), ("CPU", "PLC Module"), ("MODULE", "PLC Module"),
+                    ("BASEUNIT", "PLC Module"), ("SWITCH, ", "Switch / Limit / Proximity"), ("HOOTER", "Hooter / Annunciator"), ("FUSE", "Fuse"),
                     ("RELAY", "Relay"), ("CONTACTOR", "Contactor"), ("TRANSMITTER", "Transmitter / Sensor"),
                     ("SENSOR", "Transmitter / Sensor"), ("SWITCH", "Switch / Limit / Proximity"),
                     ("MOTOR", "Motor"), ("VALVE", "Field Device (valve)"), ("PUMP", "Field Device (pump)")]:

@@ -1,0 +1,14 @@
+# Not needed by the web deployment (keeps the upload and the function bundle small; client drawings stay out of Vercel)
+Docs/
+tests/
+installer/
+documentation/
+data/
+dist/
+build/
+.venv/
+.claude/
+*.bat
+desktop.py
+requirements-desktop.txt
+requirements-dev.txt

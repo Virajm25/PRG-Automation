@@ -1,5 +1,5 @@
 """Low-level PDF access: chars, lines of text, rotated text, scanned-page detection, OCR fallback."""
-import io
+import io, os
 import pdfplumber
 
 
@@ -19,12 +19,40 @@ def page_png(page, resolution=110):
     return buf.getvalue()
 
 
+_TESS = ["C:/Program Files/Tesseract-OCR/tesseract.exe", "C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"]
+
+
+def _find_tesseract():
+    """Locate tesseract.exe: TESSERACT_CMD env, a copy bundled next to the app (installer), then the default install folders."""
+    import sys, shutil
+    base = getattr(sys, "_MEIPASS", None) or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for c in (os.environ.get("TESSERACT_CMD"), os.path.join(base, "tesseract", "tesseract.exe"), shutil.which("tesseract"), *_TESS):
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def ocr_available():
+    try:
+        import pytesseract  # noqa: F401
+    except ImportError:
+        return False
+    return _find_tesseract() is not None
+
+
 def ocr_page_words(page, resolution=300):
     """OCR fallback -> list of dict(text,x0,x1,top,bottom) in PDF points. Needs tesseract installed."""
     try:
         import pytesseract
     except ImportError:
         return []
+    exe = _find_tesseract()
+    if not exe:
+        return []
+    pytesseract.pytesseract.tesseract_cmd = exe
+    tess_dir = os.path.join(os.path.dirname(exe), "tessdata")
+    if os.path.isdir(tess_dir):
+        os.environ.setdefault("TESSDATA_PREFIX", tess_dir)
     im = page.to_image(resolution=resolution).original
     d = pytesseract.image_to_data(im, output_type=pytesseract.Output.DICT, config="--psm 11")
     s = 72.0 / resolution

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Data extractor for General Arrangement (External & Internal GA) and Specifications drawings."""
 import re, json
 from typing import List, Dict, Any, Optional
@@ -169,31 +169,16 @@ def extract_panel_specs_from_text(text: str, sheet_num: int = 0, draw_type: str 
     return specs
 
 
-def extract_with_llm(text: str, sheet_num: int, draw_type: str, client) -> List[Dict[str, Any]]:
-    if not client or not client.ready:
-        return []
-    
-    system_prompt = (
-        "You are an expert electrical CAD drawing parser. Given raw text from an engineering sheet, "
-        "extract all physical specs, dimensions, materials, electrical ratings. Return JSON with "
-        "specs: [{category, property_name, property_value, unit}]."
-    )
-    user_prompt = f"Sheet: {sheet_num}\nType: {draw_type}\nText:\n{text[:3500]}"
-    try:
-        data = client.chat_json(system_prompt, user_prompt, model=client.text_model)
-        out = []
-        for item in data.get("specs", []):
-            if item.get("property_name") and item.get("property_value"):
-                out.append({
-                    "sheet": sheet_num,
-                    "category": item.get("category", "General"),
-                    "property_name": item["property_name"],
-                    "property_value": str(item["property_value"]),
-                    "unit": item.get("unit", ""),
-                    "raw_text": f"{item['property_name']}: {item['property_value']}"
-                })
-        return out
-    except Exception as e:
-        print(f"Groq extraction error: {e}")
-        return []
+def extract_with_llm(text: str, sheet_num: int, draw_type: str, client=None) -> List[Dict[str, Any]]:
+    from .ai_assist import extract_specs
+    return extract_specs(text, sheet_num, draw_type, client)
 
+
+def extract_sheet_specs(page, sheet_no, draw_type, text=""):
+    """Rule-based specs for one sheet: ruled/laid-out tables first (complete), plus the derived dimension and front-equipment rows."""
+    from .spec_tables import extract_all
+    old = extract_panel_specs_from_text(text, sheet_num=sheet_no, draw_type=draw_type) if draw_type in ("external_ga", "internal_ga") or "PANEL DETAILS" in text.upper() else []
+    new = extract_all(page, sheet_no, draw_type, text)
+    if len(new) >= 5:
+        return new + [o for o in old if o["category"] in ("Dimensions", "Front Equipment")]
+    return old + new

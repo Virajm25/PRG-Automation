@@ -22,3 +22,13 @@ data/cache/
 # Test scratch files
 scratch_test_ga.py
 .vercel
+
+# Packaging
+dist/
+build/
+*.spec
+installer/Output/
+tesseract/
+
+# Local editor / preview config
+.claude/launch.json
