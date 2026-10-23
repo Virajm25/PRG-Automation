@@ -1,7 +1,7 @@
-"""SQLite project database (one file per installation; project-wise tables)."""
+﻿"""SQLite project database (one file per installation; project-wise tables)."""
 import sqlite3, os, json, threading, time
 
-DB_PATH = os.environ.get("PRG_DB", os.path.join(os.path.dirname(__file__), "..", "data", "prg.db"))
+DB_PATH = os.environ.get("PRG_DB") or (os.path.join("/tmp", "prg.db") if os.environ.get("VERCEL") else os.path.join(os.path.dirname(__file__), "..", "data", "prg.db"))
 _lock = threading.Lock()
 
 TABLES = {
@@ -108,3 +108,4 @@ def get_setting(key, default=""):
 
 def set_setting(key, value):
     x("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+

@@ -8,8 +8,8 @@ from core.pdfio import open_pdf
 from core.llm import LLMError, Groq
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-UP = os.path.join(ROOT, "data", "uploads")
-CACHE = os.path.join(ROOT, "data", "cache")
+UP = os.path.join("/tmp", "prg-uploads") if os.environ.get("VERCEL") else os.path.join(ROOT, "data", "uploads")
+CACHE = os.path.join("/tmp", "prg-cache") if os.environ.get("VERCEL") else os.path.join(ROOT, "data", "cache")
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -354,6 +354,7 @@ def learning_info():
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5057)), debug=False, threaded=True)
+
 
 
 
