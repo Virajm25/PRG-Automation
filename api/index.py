@@ -1,4 +1,4 @@
-﻿from app import app
+from app import app as flask_app
 
-# Vercel Python function entrypoint
-handler = app
+# Vercel discovers the Flask WSGI application from this module.
+app = flask_app
