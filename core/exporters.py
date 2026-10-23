@@ -255,6 +255,9 @@ def to_xlsx(pid, project_name="", only=None):
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     wb = Workbook(); wb.remove(wb.active)
+    names = list(selected(pid, only).keys())
+    wb.properties.title = f"{project_name} - {names[0] if len(names) == 1 else 'Engineering Data'}" if project_name else "Engineering Data"
+    wb.properties.creator = "PRG Drawing Data Extractor"
     thin = Side(style="thin", color="BBBBBB")
     for name, (cols, rows) in selected(pid, only).items():
         ws = wb.create_sheet(name[:31])
@@ -308,7 +311,13 @@ def to_pdf(pid, project_name="", only=None):
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
-    b = io.BytesIO(); doc = SimpleDocTemplate(b, pagesize=landscape(A3), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
+    names = list(selected(pid, only).keys())
+    what = names[0] if len(names) == 1 else "Engineering Data"
+    b = io.BytesIO()
+    doc = SimpleDocTemplate(b, pagesize=landscape(A3), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20,
+                            title=f"{project_name} - {what}" if project_name else what,      # shown as the tab / window title
+                            author="PRG Drawing Data Extractor", creator="PRG Drawing Data Extractor",
+                            subject=", ".join(names)[:500])
     st = getSampleStyleSheet(); small = st["BodyText"].clone("s"); small.fontSize = 6.5; small.leading = 8
     el = []
     for name, (cols, rows) in selected(pid, only).items():
